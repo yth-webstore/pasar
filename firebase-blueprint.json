@@ -1,0 +1,70 @@
+{
+  "entities": {
+    "User": {
+      "collection": "users",
+      "fields": {
+        "id": { "type": "string", "description": "Unique user ID (Firebase Auth UID)" },
+        "name": { "type": "string", "description": "Nama lengkap warga" },
+        "phone": { "type": "string", "description": "Nomor WhatsApp / HP" },
+        "email": { "type": "string", "description": "Alamat email terdaftar" },
+        "role": { "type": "string", "description": "Peran: buyer, seller, atau admin" },
+        "avatar": { "type": "string", "description": "URL foto profil" },
+        "dusun": { "type": "string", "description": "Alamat Dusun / RT / RW" },
+        "shopName": { "type": "string", "description": "Nama usaha / toko UMKM jika penjual" },
+        "shopDescription": { "type": "string", "description": "Deskripsi toko UMKM" },
+        "shopWhatsapp": { "type": "string", "description": "WhatsApp toko UMKM" },
+        "bankName": { "type": "string", "description": "Nama bank atau e-wallet toko" },
+        "bankAccountNumber": { "type": "string", "description": "Nomor rekening toko" },
+        "bankAccountHolder": { "type": "string", "description": "Nama pemilik rekening" },
+        "verifiedSeller": { "type": "boolean", "description": "Status verifikasi UMKM" },
+        "createdAt": { "type": "string", "description": "Waktu pembuatan akun ISO format" }
+      }
+    },
+    "Product": {
+      "collection": "products",
+      "fields": {
+        "id": { "type": "string", "description": "ID produk unik" },
+        "name": { "type": "string", "description": "Nama produk desa" },
+        "slug": { "type": "string", "description": "Slug SEO friendly" },
+        "sellerId": { "type": "string", "description": "ID penjual pemilik produk" },
+        "sellerName": { "type": "string", "description": "Nama penjual" },
+        "sellerDusun": { "type": "string", "description": "Dusun penjual" },
+        "sellerWhatsapp": { "type": "string", "description": "Nomor WhatsApp penjual" },
+        "categoryId": { "type": "string", "description": "Kategori produk" },
+        "categoryName": { "type": "string", "description": "Nama kategori produk" },
+        "price": { "type": "number", "description": "Harga jual" },
+        "originalPrice": { "type": "number", "description": "Harga asli sebelum diskon" },
+        "unit": { "type": "string", "description": "Satuan penjualan (kg, ikat, porsi)" },
+        "stock": { "type": "number", "description": "Jumlah stok tersedia" },
+        "description": { "type": "string", "description": "Deskripsi produk" },
+        "imageUrl": { "type": "string", "description": "URL foto WebP produk" },
+        "rating": { "type": "number", "description": "Rating produk (1-5)" },
+        "soldCount": { "type": "number", "description": "Jumlah terjual" },
+        "isPromo": { "type": "boolean", "description": "Status promo diskon" },
+        "promoBadge": { "type": "string", "description": "Label badge promo" },
+        "createdAt": { "type": "string", "description": "Waktu pembuatan produk" }
+      }
+    },
+    "Order": {
+      "collection": "orders",
+      "fields": {
+        "id": { "type": "string", "description": "ID pesanan unik" },
+        "buyerId": { "type": "string", "description": "ID pembeli" },
+        "buyerName": { "type": "string", "description": "Nama pembeli" },
+        "buyerPhone": { "type": "string", "description": "Nomor WhatsApp pembeli" },
+        "buyerAddress": { "type": "string", "description": "Alamat tujuan pembeli" },
+        "buyerDusun": { "type": "string", "description": "Dusun pembeli" },
+        "sellerId": { "type": "string", "description": "ID penjual" },
+        "sellerName": { "type": "string", "description": "Nama penjual" },
+        "totalAmount": { "type": "number", "description": "Total tagihan pesanan" },
+        "deliveryFee": { "type": "number", "description": "Biaya kurir desa" },
+        "deliveryMethod": { "type": "string", "description": "antar_desa atau ambil_toko" },
+        "paymentMethod": { "type": "string", "description": "cod atau transfer" },
+        "paymentProofUrl": { "type": "string", "description": "URL foto bukti transfer" },
+        "status": { "type": "string", "description": "Status: menunggu, diproses, dikirim, selesai, dibatalkan" },
+        "notes": { "type": "string", "description": "Catatan pembeli" },
+        "createdAt": { "type": "string", "description": "Waktu order dibuat" }
+      }
+    }
+  }
+}

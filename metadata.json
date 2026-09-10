@@ -1,0 +1,6 @@
+{
+  "name": "Pasar Desa Mandiri",
+  "description": "Marketplace skala desa modern, cepat, dan ringan untuk jual beli produk UMKM, pertanian, sembako, kerajinan, serta berita dan pengumuman desa.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

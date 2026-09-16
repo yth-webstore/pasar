@@ -1,5 +1,5 @@
 import React from 'react';
-import { Star, MessageCircle, ShoppingCart, Heart, MapPin, Share2 } from 'lucide-react';
+import { Star, MessageCircle, ShoppingCart, Heart, MapPin, Store } from 'lucide-react';
 import { Product } from '../types';
 import { useApp } from '../context/AppContext';
 import { formatRupiah } from '../utils/seo';
@@ -105,13 +105,24 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       {/* Card Body */}
       <div className="p-3 sm:p-3.5 flex-1 flex flex-col justify-between">
         <div>
-          {/* Category & Seller Dusun */}
-          <div className="flex items-center justify-between text-[11px] text-neutral-500 mb-1">
-            <span className="font-semibold text-emerald-800 truncate">{product.categoryName}</span>
-            <span className="flex items-center gap-0.5 truncate text-[10px]">
-              <MapPin className="w-2.5 h-2.5 text-neutral-400 shrink-0" />
-              {product.sellerDusun.split(',')[0]}
-            </span>
+          {/* Nama Lapak & Lokasi Dusun */}
+          <div className="mb-1.5">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="font-bold text-neutral-800 truncate flex items-center gap-1">
+                <Store className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                <span className="truncate">{product.sellerName}</span>
+              </span>
+              <span className="flex items-center gap-0.5 text-neutral-400 text-[10px] shrink-0 ml-1">
+                <MapPin className="w-2.5 h-2.5 text-neutral-400 shrink-0" />
+                {product.sellerDusun.split(',')[0]}
+              </span>
+            </div>
+            {/* Tag / Kategori produk berada tepat di bawah nama lapak */}
+            <div className="mt-0.5">
+              <span className="inline-block bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-bold text-[10px] px-1.5 py-0.5 rounded-md">
+                {product.categoryName}
+              </span>
+            </div>
           </div>
 
           {/* Product Name */}
@@ -140,7 +151,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             <span className="text-neutral-400 text-[10px]">({product.soldCount})</span>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             {/* WhatsApp Chat button */}
             <button
               id={`wa-chat-btn-${product.id}`}
@@ -150,17 +161,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               aria-label="Hubungi Penjual via WhatsApp"
             >
               <MessageCircle className="w-4 h-4" />
-            </button>
-
-            {/* Social Media Share button */}
-            <button
-              id={`share-btn-${product.id}`}
-              onClick={handleShareProduct}
-              className="p-1.5 text-neutral-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition"
-              title="Bagikan ke Media Sosial (WhatsApp, FB, Twitter, dll)"
-              aria-label="Bagikan Produk ke Media Sosial"
-            >
-              <Share2 className="w-4 h-4" />
             </button>
 
             {/* Quick Add to Cart button */}

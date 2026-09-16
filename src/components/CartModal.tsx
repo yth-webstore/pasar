@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, Store } from 'lucide-react';
+import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, Store, FileText } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatRupiah } from '../utils/seo';
 
@@ -10,10 +10,12 @@ export const CartModal: React.FC = () => {
     setIsCartOpen,
     removeFromCart,
     updateCartQuantity,
+    updateCartItemNote,
     clearCart,
     getCartTotal,
     setIsCheckoutModalOpen,
     setSelectedProduct,
+    settings,
   } = useApp();
 
   if (!isCartOpen) return null;
@@ -62,7 +64,7 @@ export const CartModal: React.FC = () => {
               </div>
               <h3 className="font-bold text-neutral-800 text-base">Keranjang Anda Masih Kosong</h3>
               <p className="text-xs text-neutral-500 max-w-xs">
-                Yuk jelajahi hasil panen segar, sembako, dan camilan enak dari tetangga & UMKM Desa Sukamaju!
+                Yuk jelajahi hasil panen segar, sembako, dan camilan enak dari tetangga & UMKM {settings.villageName}!
               </p>
               <button
                 id="empty-cart-browse-btn"
@@ -104,8 +106,14 @@ export const CartModal: React.FC = () => {
                       <Store className="w-3 h-3 text-neutral-400 shrink-0" />
                       {item.product.sellerName}
                     </div>
+                    {/* Tag kategori berada di bawah nama lapak */}
+                    <div className="mt-0.5">
+                      <span className="inline-block bg-emerald-50 text-emerald-800 text-[10px] font-semibold px-1.5 py-0.2 rounded border border-emerald-200">
+                        {item.product.categoryName}
+                      </span>
+                    </div>
                     <h4
-                      className="font-bold text-xs text-neutral-900 truncate cursor-pointer hover:text-emerald-700"
+                      className="font-bold text-xs text-neutral-900 truncate cursor-pointer hover:text-emerald-700 mt-0.5"
                       onClick={() => {
                         setIsCartOpen(false);
                         setSelectedProduct(item.product);
@@ -152,6 +160,20 @@ export const CartModal: React.FC = () => {
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
+                      </div>
+                    </div>
+
+                    {/* Sisipkan Catatan Barang */}
+                    <div className="mt-2 pt-2 border-t border-dashed border-neutral-200">
+                      <div className="flex items-center gap-1.5 bg-neutral-50 hover:bg-neutral-100/80 p-1.5 px-2 rounded-xl border border-neutral-200/90 transition focus-within:ring-2 focus-within:ring-emerald-200 focus-within:bg-white">
+                        <FileText className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                        <input
+                          type="text"
+                          value={item.catatanProduk || item.notes || ''}
+                          onChange={(e) => updateCartItemNote(item.product.id, e.target.value)}
+                          placeholder="Sisipkan catatan barang (cth: tidak pedas, potong 4, dll)..."
+                          className="w-full text-[11px] bg-transparent outline-none text-neutral-700 placeholder:text-neutral-400"
+                        />
                       </div>
                     </div>
                   </div>

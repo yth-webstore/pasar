@@ -11,6 +11,9 @@ import {
   AlertTriangle,
   ArrowLeft,
   FileCheck2,
+  MessageCircle,
+  BellRing,
+  Store,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatRupiah } from '../utils/seo';
@@ -25,6 +28,8 @@ export const CheckoutModal: React.FC = () => {
     currentUser,
     settings,
     createOrder,
+    sendOrderWhatsAppToSeller,
+    updateCartItemNote,
     setActiveTab,
   } = useApp();
 
@@ -168,23 +173,66 @@ export const CheckoutModal: React.FC = () => {
                 </p>
               </div>
 
-              <div className="bg-neutral-50 rounded-2xl p-4 border border-neutral-200 text-left space-y-2.5">
-                <div className="text-xs font-bold text-neutral-800 border-b border-neutral-200 pb-2">
-                  Ringkasan Nota Pesanan ({createdOrders.length} Toko)
+              <div className="bg-neutral-50 rounded-2xl p-4 border border-neutral-200 text-left space-y-3">
+                <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
+                  <span className="text-xs font-bold text-neutral-800">
+                    Ringkasan Nota Pesanan ({createdOrders.length} Toko)
+                  </span>
+                  <span className="text-[10px] text-emerald-700 bg-emerald-100 font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <BellRing className="w-3 h-3" /> Notifikasi HP Terkirim
+                  </span>
                 </div>
+
+                <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-2.5 text-[11px] text-emerald-900 leading-relaxed">
+                  📲 <strong>Notifikasi Pesanan:</strong> HP penjual telah menerima peringatan getar & notifikasi pesanan baru. Klik tombol di bawah untuk meneruskan rincian lengkap pesanan langsung ke WhatsApp penjual!
+                </div>
+
                 {createdOrders.map((ord) => (
-                  <div key={ord.id} className="text-xs space-y-1 py-1 border-b border-neutral-100 last:border-none">
-                    <div className="flex justify-between font-bold">
-                      <span>{ord.sellerName}</span>
-                      <span className="text-emerald-800">{formatRupiah(ord.total)}</span>
+                  <div key={ord.id} className="p-3 bg-white rounded-xl border border-neutral-200 space-y-2">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="font-bold text-neutral-900 text-xs flex items-center gap-1">
+                          <Store className="w-3.5 h-3.5 text-emerald-700" />
+                          <span>{ord.sellerName}</span>
+                        </div>
+                        {/* Tag Kategori berada di bawah nama lapak */}
+                        <div className="mt-1">
+                          <span className="inline-block bg-emerald-50 text-emerald-800 text-[10px] font-semibold px-2 py-0.5 rounded-md border border-emerald-200">
+                            {ord.items[0]?.categoryName || 'Makanan & Olahan'}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-emerald-800 font-extrabold text-xs">{formatRupiah(ord.total)}</span>
                     </div>
-                    <div className="text-[11px] text-neutral-500 flex justify-between">
-                      <span>Invoice: {ord.invoiceNumber}</span>
+
+                    <div className="text-[11px] text-neutral-500 flex justify-between pt-1 border-t border-neutral-100">
+                      <span>Invoice: <strong>{ord.invoiceNumber}</strong></span>
                       <span className="capitalize font-semibold text-amber-700">Status: {ord.status}</span>
                     </div>
+
+                    <div className="text-[11px] text-neutral-600 bg-neutral-50 p-2 rounded-lg">
+                      {ord.items.map((it, idx) => (
+                        <div key={idx} className="flex justify-between">
+                          <span>{it.quantity}x {it.productName}</span>
+                          <span>{formatRupiah(it.price * it.quantity)}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Tombol Kirim Rincian Pesanan ke WhatsApp Penjual */}
+                    <button
+                      type="button"
+                      id={`wa-seller-btn-${ord.id}`}
+                      onClick={() => sendOrderWhatsAppToSeller(ord)}
+                      className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      <span>Kirim Rincian Pesanan ke WhatsApp {ord.sellerName}</span>
+                    </button>
                   </div>
                 ))}
-                <div className="pt-2 flex justify-between font-extrabold text-sm text-neutral-900">
+
+                <div className="pt-2 flex justify-between font-extrabold text-sm text-neutral-900 border-t border-neutral-200">
                   <span>Total Pembayaran:</span>
                   <span className="text-emerald-900">{formatRupiah(grandTotal)}</span>
                 </div>
@@ -203,10 +251,10 @@ export const CheckoutModal: React.FC = () => {
           ) : (
             /* Checkout Form */
             <form onSubmit={handleConfirmOrder} className="space-y-4">
-              {/* Data Penerima */}
+              {/* Data Penerima & Alamat Lengkap */}
               <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-200 space-y-3">
                 <div className="text-xs font-bold text-neutral-800 uppercase tracking-wide">
-                  1. Alamat Pengantaran Warga
+                  1. Alamat Lengkap Pengantaran Warga
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -243,7 +291,7 @@ export const CheckoutModal: React.FC = () => {
 
                 <div>
                   <label className="text-[11px] font-semibold text-neutral-600 block mb-1">
-                    Dusun & RT / RW *
+                    Alamat Lengkap (Dusun, RT/RW, dan Wilayah Domisili) *
                   </label>
                   <select
                     id="buyer-dusun-select"
@@ -264,12 +312,12 @@ export const CheckoutModal: React.FC = () => {
 
                 <div>
                   <label className="text-[11px] font-semibold text-neutral-600 block mb-1">
-                    Patokan Rumah / Catatan Pengantaran
+                    Patokan Rumah / Alamat Lengkap & Detail Jalan
                   </label>
                   <input
                     id="buyer-address-detail"
                     type="text"
-                    placeholder="Contoh: Depan Mushola Al-Ikhlas / Rumah pagar hijau"
+                    placeholder="Contoh: Jl. Poros Desa No. 12, Depan Mushola Al-Ikhlas, Pagar Hijau"
                     value={buyerAddressDetail}
                     onChange={(e) => setBuyerAddressDetail(e.target.value)}
                     className="w-full text-xs p-2 rounded-xl border border-neutral-300 bg-white focus:ring-2 focus:ring-emerald-200 outline-none"
@@ -277,10 +325,69 @@ export const CheckoutModal: React.FC = () => {
                 </div>
               </div>
 
+              {/* Daftar Barang & Sisipkan Catatan */}
+              <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-bold text-neutral-800 uppercase tracking-wide">
+                    2. Barang & Sisipkan Catatan Produk
+                  </div>
+                  <span className="text-[11px] text-neutral-500 font-medium">
+                    {cart.length} macam barang
+                  </span>
+                </div>
+
+                <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+                  {cart.map((item) => (
+                    <div
+                      key={item.product.id}
+                      className="bg-white p-2.5 rounded-xl border border-neutral-200 text-xs space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <img
+                            src={item.product.imageUrl}
+                            alt={item.product.name}
+                            className="w-10 h-10 rounded-lg object-cover border border-neutral-200"
+                          />
+                          <div>
+                            <div className="text-[10px] font-bold text-emerald-800 flex items-center gap-1">
+                              <Store className="w-3 h-3 text-emerald-600" />
+                              <span>{item.product.sellerName}</span>
+                            </div>
+                            {/* Tag Kategori berada di bawah nama lapak */}
+                            <div className="mt-0.5">
+                              <span className="inline-block bg-emerald-50 text-emerald-800 text-[9px] font-semibold px-1.5 py-0.2 rounded border border-emerald-200">
+                                {item.product.categoryName}
+                              </span>
+                            </div>
+                            <div className="font-bold text-neutral-900 line-clamp-1 mt-0.5">
+                              {item.product.name}
+                            </div>
+                            <div className="text-[10px] text-neutral-500">
+                              {item.quantity} {item.product.unit} • {formatRupiah(item.product.price * item.quantity)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 bg-neutral-50 p-1.5 px-2 rounded-lg border border-neutral-200 focus-within:ring-2 focus-within:ring-emerald-200 focus-within:bg-white">
+                        <span className="text-[10px] font-bold text-emerald-800 shrink-0">Catatan:</span>
+                        <input
+                          type="text"
+                          value={item.catatanProduk || item.notes || ''}
+                          onChange={(e) => updateCartItemNote(item.product.id, e.target.value)}
+                          placeholder="Sisipkan catatan untuk barang ini (cth: tidak pedas, iris tipis)..."
+                          className="w-full text-[11px] bg-transparent outline-none text-neutral-800 placeholder:text-neutral-400"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               {/* Metode Pengiriman */}
               <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-200 space-y-2.5">
                 <div className="text-xs font-bold text-neutral-800 uppercase tracking-wide">
-                  2. Opsi Pengantaran
+                  3. Opsi Pengantaran
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -325,7 +432,7 @@ export const CheckoutModal: React.FC = () => {
               {/* Metode Pembayaran */}
               <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-200 space-y-3">
                 <div className="text-xs font-bold text-neutral-800 uppercase tracking-wide">
-                  3. Metode Pembayaran
+                  4. Metode Pembayaran
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">

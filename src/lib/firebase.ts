@@ -536,6 +536,8 @@ export async function createStoreInFirestore(params: {
   bankName?: string;
   bankAccountNumber?: string;
   bankAccountHolder?: string;
+  openingHours?: string;
+  closedDays?: string;
 }): Promise<Store> {
   const storeId = `store-${Date.now()}`;
   const slug = params.name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
@@ -553,6 +555,8 @@ export async function createStoreInFirestore(params: {
     isVerified: true,
     rating: 5.0,
     totalSales: 0,
+    openingHours: params.openingHours || '06:00 - 21:00 WIB',
+    closedDays: params.closedDays || 'Buka Setiap Hari',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -677,11 +681,12 @@ export async function firebaseGoogleSignIn(): Promise<User> {
 
   const isDefaultSuperAdmin =
     firebaseUser.email?.toLowerCase() === 'yth.abdurrohman@gmail.com' ||
+    firebaseUser.email?.toLowerCase() === 'bumdes@mekarterus.desa.id' ||
     firebaseUser.email?.toLowerCase() === 'bumdes@sukamaju.desa.id';
 
   const newUser: User = {
     id: firebaseUser.uid,
-    name: firebaseUser.displayName || 'Warga Sukamaju',
+    name: firebaseUser.displayName || 'Warga Desa Mekar Terus',
     phone: firebaseUser.phoneNumber || '',
     email: firebaseUser.email || undefined,
     role: isDefaultSuperAdmin ? 'admin' : 'buyer',

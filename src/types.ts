@@ -63,6 +63,10 @@ export interface Store {
   isVerified: boolean;
   rating?: number;
   totalSales?: number;
+  openingHours?: string; // e.g. "06:00 - 21:00 WIB"
+  closedDays?: string; // e.g. "Minggu" / "Buka Setiap Hari" / "Jumat"
+  openTime?: string;
+  closeTime?: string;
   createdAt: string;
   updatedAt?: string;
 }
@@ -199,6 +203,7 @@ export interface Order {
   storeName?: string;
   sellerId: string;
   sellerName: string;
+  sellerWhatsapp?: string;
   courierId?: string;
   courierName?: string;
   buyerName: string;
@@ -260,7 +265,7 @@ export interface VillageNews {
   slug: string;
   summary: string;
   content: string;
-  author: string; // Admin Desa Sukamaju
+  author: string; // Admin Desa Mekar Terus
   date: string;
   category: 'pengumuman' | 'kegiatan' | 'bumdes' | 'pertanian';
   imageUrl?: string;

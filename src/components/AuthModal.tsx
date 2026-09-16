@@ -238,7 +238,7 @@ export const AuthModal: React.FC = () => {
 
               <a
                 href={`https://wa.me/${(settings.villageWhatsapp || '6281234567890').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-                  `Halo Super Admin Desa Sukamaju, saya ${submittedAdminUser?.name} (${submittedAdminUser?.adminPosition || 'Pengurus Desa'}) baru saja mendaftar permohonan akun Admin Pasar Desa. Mohon verifikasi dan persetujuannya di sistem. Terima kasih.`
+                  `Halo Super Admin ${settings.villageName}, saya ${submittedAdminUser?.name} (${submittedAdminUser?.adminPosition || 'Pengurus Desa'}) baru saja mendaftar permohonan akun Admin Pasar Desa. Mohon verifikasi dan persetujuannya di sistem. Terima kasih.`
                 )}`}
                 target="_blank"
                 rel="noreferrer"
@@ -494,12 +494,12 @@ export const AuthModal: React.FC = () => {
               </div>
 
               <div>
-                <label className="font-bold text-neutral-700 block mb-1">Dusun / RT / RW Domisili *</label>
+                <label className="font-bold text-neutral-700 block mb-1">Alamat Lengkap *</label>
                 <input
                   id="reg-dusun-input"
                   type="text"
                   required
-                  placeholder="Contoh: Dusun Krajan RT 02 / RW 01"
+                  placeholder="Contoh: Jl. Poros Desa No. 12, RT 02 / RW 01, Dusun Krajan"
                   value={dusun}
                   onChange={(e) => setDusun(e.target.value)}
                   className="w-full p-2.5 rounded-xl border border-neutral-300 bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 outline-none"

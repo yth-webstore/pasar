@@ -20,14 +20,16 @@ export const ProductShareModal: React.FC = () => {
 
   if (!isShareModalOpen || !sharingProduct) return null;
 
-  const currentUrl = typeof window !== 'undefined' ? window.location.href.split('?')[0] : '';
-  const shareUrl = `${currentUrl}?product=${sharingProduct.id}`;
+  const rawWa = sharingProduct.sellerWhatsapp || '081234567890';
+  const cleanWa = rawWa.replace(/[^0-9]/g, '');
+  const waDirectLink = `https://wa.me/${cleanWa}?text=${encodeURIComponent(`Halo ${sharingProduct.sellerName}, saya ingin memesan ${sharingProduct.name} (${formatRupiah(sharingProduct.price)}/${sharingProduct.unit}). Apakah masih tersedia?`)}`;
 
-  const shareText = `🌾 *${sharingProduct.name}*\n💰 Harga: ${formatRupiah(sharingProduct.price)} / ${sharingProduct.unit}\n📍 Dusun: ${sharingProduct.sellerDusun.split(',')[0]}\n🏪 Lapak: ${sharingProduct.sellerName}\n\nYuk dukung UMKM & petani lokal ${settings.villageName}! Cek dan pesan produknya di Pasar Desa Mandiri:\n${shareUrl}`;
+  // Share text using seller's WhatsApp number instead of website link
+  const shareText = `🌾 *${sharingProduct.name}*\n💰 Harga: ${formatRupiah(sharingProduct.price)} / ${sharingProduct.unit}\n📍 Dusun: ${sharingProduct.sellerDusun.split(',')[0]}\n🏪 Lapak: ${sharingProduct.sellerName}\n📱 Nomor WhatsApp Penjual: ${rawWa}\n\nLangsung hubungi dan pesan ke penjual via WhatsApp:\n${waDirectLink}`;
 
-  const handleCopyLink = async () => {
+  const handleCopyWhatsAppNumber = async () => {
     try {
-      await navigator.clipboard.writeText(shareUrl);
+      await navigator.clipboard.writeText(rawWa);
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     } catch {
@@ -43,18 +45,19 @@ export const ProductShareModal: React.FC = () => {
   };
 
   const handleShareFacebook = () => {
-    const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
+    const fbText = `${shareText}`;
+    const fbUrl = `https://www.facebook.com/sharer/sharer.php?quote=${encodeURIComponent(fbText)}&u=${encodeURIComponent(waDirectLink)}`;
     window.open(fbUrl, '_blank');
   };
 
   const handleShareTwitter = () => {
-    const tweetText = `${sharingProduct.name} - ${formatRupiah(sharingProduct.price)}/${sharingProduct.unit} di Pasar Desa Mandiri ${settings.villageName}`;
-    const xUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}&url=${encodeURIComponent(shareUrl)}`;
+    const tweetText = `${sharingProduct.name} - ${formatRupiah(sharingProduct.price)}/${sharingProduct.unit} di Lapak ${sharingProduct.sellerName}. Hubungi WA Penjual: ${rawWa}`;
+    const xUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
     window.open(xUrl, '_blank');
   };
 
   const handleShareTelegram = () => {
-    const tgUrl = `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(`${sharingProduct.name} (${formatRupiah(sharingProduct.price)}/${sharingProduct.unit})`)}`;
+    const tgUrl = `https://t.me/share/url?url=${encodeURIComponent(waDirectLink)}&text=${encodeURIComponent(`${sharingProduct.name} (${formatRupiah(sharingProduct.price)}/${sharingProduct.unit}) - WA Penjual: ${rawWa}`)}`;
     window.open(tgUrl, '_blank');
   };
 
@@ -62,9 +65,9 @@ export const ProductShareModal: React.FC = () => {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: sharingProduct.name,
-          text: `Cek ${sharingProduct.name} di Pasar Desa Mandiri ${settings.villageName}`,
-          url: shareUrl,
+          title: `${sharingProduct.name} - Lapak ${sharingProduct.sellerName}`,
+          text: `Pesan ${sharingProduct.name} langsung ke WhatsApp Penjual (${rawWa})`,
+          url: waDirectLink,
         });
       } catch {
         // User dismissed or share failed silently
@@ -207,21 +210,29 @@ export const ProductShareModal: React.FC = () => {
             </div>
           </div>
 
-          {/* Copy Link Section */}
+          {/* Copy Seller WhatsApp Section */}
           <div className="pt-2 border-t border-neutral-100">
-            <div className="text-xs font-bold text-neutral-700 mb-1.5">
-              Salin Tautan Produk:
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-bold text-neutral-700">
+                Nomor WhatsApp Penjual:
+              </span>
+              <span className="text-[11px] text-emerald-700 font-semibold">
+                Lapak {sharingProduct.sellerName}
+              </span>
             </div>
             <div className="flex items-center gap-1.5 bg-neutral-50 p-1.5 pl-3 rounded-2xl border border-neutral-200">
-              <input
-                type="text"
-                readOnly
-                value={shareUrl}
-                className="bg-transparent text-xs text-neutral-600 flex-1 outline-none truncate font-mono select-all"
-              />
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <MessageCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                <input
+                  type="text"
+                  readOnly
+                  value={rawWa}
+                  className="bg-transparent text-xs font-bold text-neutral-800 flex-1 outline-none truncate font-mono select-all"
+                />
+              </div>
               <button
-                id="copy-product-link-btn"
-                onClick={handleCopyLink}
+                id="copy-seller-wa-btn"
+                onClick={handleCopyWhatsAppNumber}
                 className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${
                   copied
                     ? 'bg-emerald-600 text-white shadow-xs'
@@ -236,7 +247,7 @@ export const ProductShareModal: React.FC = () => {
                 ) : (
                   <>
                     <Copy className="w-3.5 h-3.5 text-neutral-600" />
-                    <span>Salin</span>
+                    <span>Salin Nomor WA</span>
                   </>
                 )}
               </button>

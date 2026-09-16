@@ -1,6 +1,6 @@
 {
-  "name": "Pasar Desa Mandiri",
-  "description": "Marketplace skala desa modern, cepat, dan ringan untuk jual beli produk UMKM, pertanian, sembako, kerajinan, serta berita dan pengumuman desa.",
+  "name": "Pasar Desa Mandiri Mekar Terus",
+  "description": "Marketplace skala Desa Mekar Terus modern, cepat, dan ringan untuk jual beli produk UMKM warga, hasil panen pertanian, sembako, kerajinan, serta berita desa.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

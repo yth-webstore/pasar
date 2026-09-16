@@ -8,7 +8,6 @@ import {
   MessageCircle,
   Eye,
   FileText,
-  Search,
   Star,
   ThumbsUp,
   X,
@@ -18,9 +17,8 @@ import { Order, OrderStatus } from '../types';
 import { formatRupiah } from '../utils/seo';
 
 export const OrdersView: React.FC = () => {
-  const { orders, currentUser, updateOrderStatus, setSelectedProduct, products, rateCourier } = useApp();
+  const { orders, currentUser, updateOrderStatus, setSelectedProduct, products, rateCourier, stores, settings } = useApp();
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectedProofUrl, setSelectedProofUrl] = useState<string | null>(null);
 
   // State for courier rating modal
@@ -37,12 +35,7 @@ export const OrdersView: React.FC = () => {
   });
 
   const filteredOrders = userOrders.filter((o) => {
-    const matchesStatus = filterStatus === 'all' || o.status === filterStatus;
-    const matchesSearch =
-      o.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      o.sellerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      o.items.some((it) => it.productName.toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchesStatus && matchesSearch;
+    return filterStatus === 'all' || o.status === filterStatus;
   });
 
   // Handle courier rating submit
@@ -109,16 +102,36 @@ export const OrdersView: React.FC = () => {
   };
 
   const handleWhatsAppContact = (order: Order) => {
-    const cleanNumber = '6285712345678'; // Seller whatsapp fallback
+    const matchedStore = stores.find((s) => s.id === order.storeId || s.name === order.sellerName);
+    const rawNumber = order.sellerWhatsapp || matchedStore?.whatsapp || matchedStore?.phone || '6285712345678';
+    let cleanNumber = rawNumber.replace(/[^0-9]/g, '');
+    if (cleanNumber.startsWith('0')) cleanNumber = '62' + cleanNumber.slice(1);
+
+    const itemsSummary = order.items
+      .map((i) => `• ${i.quantity}x ${i.productName}${i.catatanProduk ? ` (Catatan: ${i.catatanProduk})` : ''}`)
+      .join('\n');
+
     const text = encodeURIComponent(
-      `Halo, saya ingin menanyakan status pesanan saya dengan Invoice *${order.invoiceNumber}* (${order.items.map((i) => i.productName).join(', ')}). Terima kasih!`
+      `*NOTIFIKASI PESANAN PASAR DESA ${settings.villageName.toUpperCase()}*\n\n` +
+      `Halo Lapak *${order.sellerName}*,\n` +
+      `Berikut rincian pesanan baru:\n` +
+      `📋 *Invoice:* ${order.invoiceNumber}\n` +
+      `👤 *Pemesan:* ${order.buyerName}\n` +
+      `📞 *No. HP:* ${order.buyerPhone}\n` +
+      `📍 *Alamat:* ${order.buyerAddress}\n` +
+      `🚚 *Kirim:* ${order.deliveryMethod === 'antar_desa' ? 'Diantar Kurir Desa' : 'Ambil di Lapak'}\n` +
+      `💳 *Metode Bayar:* ${order.paymentMethod.toUpperCase()}\n\n` +
+      `📦 *Rincian Produk:*\n${itemsSummary}\n\n` +
+      `💰 *Total Tagihan:* ${formatRupiah(order.total)}\n` +
+      (order.buyerNote ? `📝 *Catatan Tambahan:* ${order.buyerNote}\n\n` : '\n') +
+      `Mohon segera dicek dan disiapkan ya kak. Terima kasih!`
     );
     window.open(`https://wa.me/${cleanNumber}?text=${text}`, '_blank');
   };
 
   return (
     <div id="orders-view-container" className="max-w-4xl mx-auto px-4 py-6 space-y-5 pb-24">
-      {/* Title & Filter bar */}
+      {/* Title */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-black text-neutral-900 tracking-tight">
@@ -127,18 +140,6 @@ export const OrdersView: React.FC = () => {
           <p className="text-xs sm:text-sm text-neutral-500 font-medium">
             Pantau status pesanan belanja desa dari menunggu hingga sampai ke rumah Anda.
           </p>
-        </div>
-
-        {/* Search */}
-        <div className="relative max-w-xs w-full">
-          <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Cari no. invoice atau produk..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full text-xs bg-white pl-9 pr-3 py-2 rounded-xl border border-neutral-200 outline-none focus:ring-2 focus:ring-emerald-200"
-          />
         </div>
       </div>
 
@@ -174,7 +175,7 @@ export const OrdersView: React.FC = () => {
           </div>
           <h3 className="font-bold text-neutral-800 text-base">Belum Ada Pesanan</h3>
           <p className="text-xs text-neutral-500 max-w-sm mx-auto">
-            Anda belum memiliki riwayat pesanan dengan filter ini. Mari berbelanja produk UMKM dan hasil bumi Desa Sukamaju!
+            Anda belum memiliki riwayat pesanan dengan filter ini. Mari berbelanja produk UMKM dan hasil bumi {settings.villageName}!
           </p>
         </div>
       ) : (
@@ -198,8 +199,17 @@ export const OrdersView: React.FC = () => {
 
               {/* Seller info & items */}
               <div>
-                <div className="text-xs font-bold text-neutral-700 mb-2">
-                  Toko: <span className="text-emerald-800">{order.sellerName}</span>
+                <div className="mb-2">
+                  <div className="text-xs font-bold text-neutral-800">
+                    Lapak: <span className="text-emerald-800">{order.sellerName}</span>
+                  </div>
+                  {order.items[0] && (
+                    <div className="mt-0.5">
+                      <span className="inline-block bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-bold text-[10px] px-1.5 py-0.5 rounded-md">
+                        {products.find((p) => p.id === order.items[0].productId)?.categoryName || 'Produk UMKM Desa'}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -408,7 +418,7 @@ export const OrdersView: React.FC = () => {
                 Beri Rating Kurir Desa
               </h3>
               <p className="text-xs text-neutral-500 mt-1">
-                {ratingCourierOrder.courierName || 'Kurir Antar Desa Sukamaju'} • {ratingCourierOrder.invoiceNumber}
+                {ratingCourierOrder.courierName || `Kurir Antar ${settings.villageName}`} • {ratingCourierOrder.invoiceNumber}
               </p>
             </div>
 

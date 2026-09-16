@@ -350,7 +350,7 @@ export const AdminApprovalPanel: React.FC = () => {
                   <div className="flex flex-col sm:flex-row lg:flex-col items-stretch lg:items-end justify-between gap-2.5 pt-3 lg:pt-0 border-t lg:border-t-0 border-neutral-100">
                     <a
                       href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(
-                        `Halo ${req.name}, kami dari Kantor BUMDes / Pengurus Desa Sukamaju ingin mengonfirmasi permohonan pendaftaran akun Admin Pasar Desa Anda.`
+                        `Halo ${req.name}, kami dari Kantor BUMDes / Pengurus ${settings.villageName} ingin mengonfirmasi permohonan pendaftaran akun Admin Pasar Desa Anda.`
                       )}`}
                       target="_blank"
                       rel="noreferrer"

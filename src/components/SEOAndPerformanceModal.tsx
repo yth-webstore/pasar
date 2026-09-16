@@ -125,7 +125,7 @@ export const SEOAndPerformanceModal: React.FC = () => {
                   {
                     '@context': 'https://schema.org/',
                     '@type': 'LocalBusiness',
-                    name: 'Pasar Desa Mandiri Sukamaju',
+                    name: `Pasar Desa Mandiri ${settings.villageName}`,
                     description: settings.tagline,
                     areaServed: settings.villageName,
                     currenciesAccepted: 'IDR',

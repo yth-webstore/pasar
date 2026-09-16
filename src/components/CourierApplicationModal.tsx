@@ -137,7 +137,7 @@ export const CourierApplicationModal: React.FC = () => {
                 Pendaftaran Berhasil Dikirim!
               </h3>
               <p className="text-xs text-neutral-600 max-w-sm mx-auto leading-relaxed">
-                Terima kasih, <strong>{currentUser.name}</strong>. Permohonan Anda telah diteruskan ke Admin BUMDes Sukamaju untuk diverifikasi. Status kurir akan aktif setelah disetujui Admin.
+                Terima kasih, <strong>{currentUser.name}</strong>. Permohonan Anda telah diteruskan ke Admin BUMDes {settings.villageName} untuk diverifikasi. Status kurir akan aktif setelah disetujui Admin.
               </p>
               <div className="pt-3">
                 <button
@@ -252,7 +252,7 @@ export const CourierApplicationModal: React.FC = () => {
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="Contoh: Siap siaga sore hari, hafal rute RT/RW Dusun Krajan dan Dusun Sukamaju."
+                  placeholder={`Contoh: Siap siaga sore hari, hafal rute RT/RW wilayah ${settings.villageName}.`}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   className="w-full p-2.5 rounded-xl border border-neutral-300 bg-white text-xs text-neutral-900 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 outline-none resize-none"

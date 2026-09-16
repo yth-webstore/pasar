@@ -5,7 +5,7 @@ import { VillageNews } from '../../types';
 import { createSlug } from '../../utils/seo';
 
 export const AdminNewsPanel: React.FC = () => {
-  const { news, addNews, updateNews, deleteNews } = useApp();
+  const { news, addNews, updateNews, deleteNews, settings } = useApp();
 
   const [isNewsModalOpen, setIsNewsModalOpen] = useState(false);
   const [editingNews, setEditingNews] = useState<VillageNews | null>(null);
@@ -62,7 +62,7 @@ export const AdminNewsPanel: React.FC = () => {
         slug: createSlug(newsTitle),
         summary: newsSummary.trim(),
         content: newsContent.trim(),
-        author: 'Admin Desa Sukamaju & BUMDes',
+        author: `Admin ${settings.villageName} & BUMDes`,
         date: dateStr,
         category: newsCategory,
         imageUrl: newsImageUrl,
@@ -78,7 +78,7 @@ export const AdminNewsPanel: React.FC = () => {
         <div>
           <h2 className="font-extrabold text-sm text-emerald-950 flex items-center gap-2">
             <Newspaper className="w-4 h-4 text-emerald-700" />
-            Manajemen Berita & Pengumuman Desa Sukamaju
+            Manajemen Berita & Pengumuman {settings.villageName}
           </h2>
           <p className="text-xs text-emerald-800 mt-0.5">
             Berita dan surat edaran desa resmi hanya dapat diterbitkan dan dikelola oleh Administrator Desa.

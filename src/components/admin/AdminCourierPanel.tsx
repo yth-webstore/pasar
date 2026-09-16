@@ -236,7 +236,7 @@ export const AdminCourierPanel: React.FC = () => {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-extrabold text-neutral-900 text-sm">{app.name}</span>
                         <span className="text-[11px] px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600 font-medium">
-                          {app.dusun || 'Warga Desa Sukamaju'}
+                          {app.dusun || `Warga ${settings.villageName}`}
                         </span>
                       </div>
                       <div className="text-[11px] text-neutral-500 flex items-center gap-2 mt-0.5">

@@ -58,6 +58,22 @@ import {
   CourierApprovalStatus,
 } from '../types';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import {
+  playCheckoutChime,
+  playOrderCompleteChime,
+  playNotificationChime,
+  isAudioSoundEnabled,
+  setAudioSoundEnabled,
+} from '../utils/audioNotification';
+
+export interface InAppNotification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'checkout' | 'order_completed' | 'order_update' | 'info';
+  timestamp: string;
+  read: boolean;
+}
 
 interface AppContextType {
   currentUser: User | null;
@@ -85,6 +101,10 @@ interface AppContextType {
   activeTab: 'beranda' | 'kategori' | 'lapak' | 'keranjang' | 'pesanan' | 'profil' | 'admin' | 'seller' | 'courier' | 'toko';
   selectedCategory: string | null;
   searchQuery: string;
+  searchHistory: string[];
+  addSearchHistory: (query: string) => void;
+  removeSearchHistory: (query: string) => void;
+  clearSearchHistory: () => void;
   selectedProduct: Product | null;
   selectedNews: VillageNews | null;
   isAuthModalOpen: boolean;
@@ -168,8 +188,20 @@ interface AppContextType {
     bankName?: string;
     bankAccountNumber?: string;
     bankAccountHolder?: string;
+    openingHours?: string;
+    closedDays?: string;
   }) => Promise<Store>;
   rateCourier: (orderId: string, courierId: string, rating: number, review: string) => Promise<void>;
+
+  // Notifications & Sound
+  notifications: InAppNotification[];
+  unreadNotificationCount: number;
+  addNotification: (notif: Omit<InAppNotification, 'id' | 'timestamp' | 'read'>) => void;
+  markAllNotificationsRead: () => void;
+  clearNotifications: () => void;
+  isSoundEnabled: boolean;
+  setIsSoundEnabled: (enabled: boolean) => void;
+  playTestChime: (type: 'checkout' | 'completed' | 'general') => void;
 
   // Orders
   createOrder: (orderData: {
@@ -183,6 +215,7 @@ interface AppContextType {
     buyerNote?: string;
     notes?: string;
   }) => Order[];
+  sendOrderWhatsAppToSeller: (order: Order) => void;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
   assignCourierToOrder: (orderId: string, courierId: string, courierName: string) => void;
   updateDeliveryStatus: (orderId: string, deliveryStatus: DeliveryStatus, orderStatus?: OrderStatus) => void;
@@ -245,16 +278,76 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
-  const [stores, setStores] = useState<Store[]>(() => getStorage('stores', INITIAL_STORES));
+  const [stores, setStores] = useState<Store[]>(() => {
+    const loaded = getStorage('stores', INITIAL_STORES);
+    return loaded.map((s) => ({
+      ...s,
+      name: s.name.replace(/Sukamaju|Lain Mekar/g, 'Mekar Terus'),
+      description: s.description.replace(/Sukamaju|Lain Mekar/g, 'Mekar Terus'),
+      address: s.address.replace(/Sukamaju|Lain Mekar/g, 'Mekar Terus'),
+    }));
+  });
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
-  const [products, setProducts] = useState<Product[]>(() => getStorage('products', INITIAL_PRODUCTS));
+  const [products, setProducts] = useState<Product[]>(() => {
+    const loaded = getStorage('products', INITIAL_PRODUCTS);
+    return loaded.map((p) => ({
+      ...p,
+      sellerName: p.sellerName.replace(/Sukamaju|Lain Mekar/g, 'Mekar Terus'),
+      description: p.description.replace(/Sukamaju|Lain Mekar/g, 'Mekar Terus'),
+    }));
+  });
   const [categories, setCategories] = useState<Category[]>(() => getStorage('categories', INITIAL_CATEGORIES));
-  const [banners, setBanners] = useState<Banner[]>(() => getStorage('banners', INITIAL_BANNERS));
-  const [news, setNews] = useState<VillageNews[]>(() => getStorage('news', INITIAL_NEWS));
+  const [banners, setBanners] = useState<Banner[]>(() => {
+    const loaded = getStorage('banners', INITIAL_BANNERS);
+    return loaded.map((b) => ({
+      ...b,
+      title: b.title.replace(/Sukamaju|Lain Mekar/g, 'Mekar Terus'),
+      subtitle: b.subtitle.replace(/Sukamaju|Lain Mekar/g, 'Mekar Terus'),
+    }));
+  });
+  const [news, setNews] = useState<VillageNews[]>(() => {
+    const loaded = getStorage('news', INITIAL_NEWS);
+    return loaded.map((n) => ({
+      ...n,
+      title: n.title.replace(/Sukamaju|Lain Mekar/g, 'Mekar Terus'),
+      summary: n.summary.replace(/Sukamaju|Lain Mekar/g, 'Mekar Terus'),
+      content: n.content.replace(/Sukamaju|Lain Mekar/g, 'Mekar Terus'),
+      author: n.author.replace(/Sukamaju|Lain Mekar/g, 'Mekar Terus'),
+    }));
+  });
   const [ads, setAds] = useState<VillageAd[]>(() => getStorage('ads', INITIAL_ADS));
   const [reviews, setReviews] = useState<Review[]>(() => getStorage('reviews', INITIAL_REVIEWS));
-  const [settings, setSettings] = useState<VillageSettings>(() => getStorage('settings', INITIAL_SETTINGS));
+  const [settings, setSettings] = useState<VillageSettings>(() => {
+    const loaded = getStorage('settings', INITIAL_SETTINGS);
+    if (
+      !loaded.villageName ||
+      loaded.villageName === 'Desa Sukamaju' ||
+      loaded.villageName === 'Desa Lain Mekar' ||
+      loaded.villageName.includes('Sukamaju') ||
+      loaded.villageName.includes('Lain Mekar')
+    ) {
+      const updated: VillageSettings = {
+        ...loaded,
+        villageName: 'Desa Mekar Terus',
+        bumdesName: 'BUMDes Mekar Terus Mandiri Sejahtera',
+        district: 'Kecamatan Karanganyar',
+        regency: 'Kabupaten Mekar Terus Raya',
+        tagline: 'Pusat Jual Beli Produk Petani & UMKM Desa Mekar Terus',
+        bumdesKasRekening: {
+          ...loaded.bumdesKasRekening,
+          holder: 'BUMDES MEKAR TERUS MANDIRI',
+        },
+      };
+      try {
+        localStorage.setItem('settings', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    }
+    return loaded;
+  });
   const [orders, setOrders] = useState<Order[]>(() => getStorage('orders', INITIAL_ORDERS));
   const [cart, setCart] = useState<CartItem[]>(() => getStorage('cart', []));
   const [favorites, setFavorites] = useState<string[]>(() => getStorage('favorites', []));
@@ -269,7 +362,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         userId: 'user-courier-1',
         name: 'Kang Ujang Pengantar Desa',
         phone: '081234567893',
-        dusun: 'Dusun Sukamaju RW 03',
+        dusun: 'Dusun Mekarwangi RW 03',
         vehicleType: 'Sepeda Motor',
         vehicleInfo: 'Honda Beat Merah (B 4567 DES)',
         driverLicenseNumber: 'SIM C Aktif',
@@ -277,7 +370,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         status: 'approved',
         appliedAt: '2026-03-01T08:00:00.000Z',
         reviewedAt: '2026-03-01T09:00:00.000Z',
-        reviewedBy: 'Admin BUMDes Sukamaju',
+        reviewedBy: 'Admin BUMDes Mekar Terus',
       },
     ])
   );
@@ -286,6 +379,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeTab, setActiveTab] = useState<'beranda' | 'kategori' | 'lapak' | 'keranjang' | 'pesanan' | 'profil' | 'admin' | 'seller' | 'courier' | 'toko'>('beranda');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchHistory, setSearchHistory] = useState<string[]>(() =>
+    getStorage('searchHistory', ['Beras', 'Minyak Goreng', 'Pisang Raja', 'Ikan Gurame', 'Cabai Rawit'])
+  );
+
+  const addSearchHistory = (query: string) => {
+    const trimmed = query.trim();
+    if (!trimmed) return;
+    setSearchHistory((prev) => {
+      const filtered = prev.filter((item) => item.toLowerCase() !== trimmed.toLowerCase());
+      const updated = [trimmed, ...filtered].slice(0, 10);
+      setStorage('searchHistory', updated);
+      return updated;
+    });
+  };
+
+  const removeSearchHistory = (query: string) => {
+    setSearchHistory((prev) => {
+      const updated = prev.filter((item) => item.toLowerCase() !== query.toLowerCase());
+      setStorage('searchHistory', updated);
+      return updated;
+    });
+  };
+
+  const clearSearchHistory = () => {
+    setSearchHistory([]);
+    setStorage('searchHistory', []);
+  };
+
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedNews, setSelectedNews] = useState<VillageNews | null>(null);
 
@@ -297,6 +418,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isCourierModalOpen, setIsCourierModalOpen] = useState<boolean>(false);
   const [sharingProduct, setSharingProduct] = useState<Product | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState<boolean>(false);
+
+  // In-app notifications & Sound preference
+  const [notifications, setNotifications] = useState<InAppNotification[]>(() =>
+    getStorage('notifications', [
+      {
+        id: 'notif-welcome',
+        title: 'Selamat Datang di Pasar Desa!',
+        message: 'Belanja mudah hasil tani, sembako, dan aneka jajanan warga se-desa.',
+        type: 'info',
+        timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+        read: true,
+      },
+    ])
+  );
+  const [isSoundEnabled, setIsSoundEnabledState] = useState<boolean>(() => isAudioSoundEnabled());
+
+  const setIsSoundEnabled = (enabled: boolean) => {
+    setIsSoundEnabledState(enabled);
+    setAudioSoundEnabled(enabled);
+  };
+
+  const addNotification = (notif: Omit<InAppNotification, 'id' | 'timestamp' | 'read'>) => {
+    const newNotif: InAppNotification = {
+      id: `notif-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+      read: false,
+      ...notif,
+    };
+    setNotifications((prev) => [newNotif, ...prev.slice(0, 30)]);
+  };
+
+  const markAllNotificationsRead = () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  };
+
+  const clearNotifications = () => {
+    setNotifications([]);
+  };
+
+  const playTestChime = (type: 'checkout' | 'completed' | 'general') => {
+    if (type === 'checkout') playCheckoutChime();
+    else if (type === 'completed') playOrderCompleteChime();
+    else playNotificationChime();
+  };
+
+  const unreadNotificationCount = notifications.filter((n) => !n.read).length;
 
   const openShareProduct = (p: Product) => {
     setSharingProduct(p);
@@ -398,7 +565,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (selectedProduct) {
       updatePageSEO(
         `${selectedProduct.name} - ${selectedProduct.sellerName}`,
-        `Beli ${selectedProduct.name} murah berkualitas dari ${selectedProduct.sellerName} di Desa Sukamaju. Stok ready, bayar COD atau transfer.`,
+        `Beli ${selectedProduct.name} murah berkualitas dari ${selectedProduct.sellerName} di ${settings.villageName}. Stok ready, bayar COD atau transfer.`,
         undefined,
         selectedProduct.imageUrl
       );
@@ -411,7 +578,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       );
     } else if (activeTab === 'beranda') {
       updatePageSEO(
-        'Pasar Desa Mandiri Sukamaju - Jual Beli Produk Warga & UMKM Desa',
+        `Pasar Desa Mandiri ${settings.villageName} - Jual Beli Produk Warga & UMKM Desa`,
         'Belanja sembako murah, panen sayur padi organik, camilan khas, dan kerajinan desa. Dukung UMKM tetangga sendiri.'
       );
     } else if (activeTab === 'kategori') {
@@ -421,7 +588,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       );
     } else if (activeTab === 'admin') {
       updatePageSEO(
-        'Dashboard Admin Desa Sukamaju & BUMDes',
+        `Dashboard Admin ${settings.villageName} & BUMDes`,
         'Panel kendali pengelolaan pasar desa, UMKM, berita desa, dan laporan keuangan.'
       );
     } else if (activeTab === 'seller' || activeTab === 'toko') {
@@ -805,7 +972,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const targetApp = courierApplications.find((a) => a.id === applicationId);
     if (!targetApp) return;
 
-    const reviewer = currentUser?.name || 'Admin BUMDes Sukamaju';
+    const reviewer = currentUser?.name || `Admin BUMDes ${settings.villageName}`;
     const now = new Date().toISOString();
 
     setCourierApplications((prev) =>
@@ -862,7 +1029,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const targetApp = courierApplications.find((a) => a.id === applicationId);
     if (!targetApp) return;
 
-    const reviewer = currentUser?.name || 'Admin BUMDes Sukamaju';
+    const reviewer = currentUser?.name || `Admin BUMDes ${settings.villageName}`;
     const now = new Date().toISOString();
 
     setCourierApplications((prev) =>
@@ -1075,12 +1242,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const orderNumber = `ORD-${Date.now().toString().slice(-4)}${index + 1}`;
       const invoiceNumber = `INV/DESA/${now.getFullYear()}/${Math.floor(100000 + Math.random() * 900000)}`;
 
+      const sellerWhatsapp = matchedStore?.whatsapp || items[0]?.product.sellerWhatsapp || '6285712345678';
+
       const orderItem: Order = {
         id: `ord-${Date.now()}-${index}-${Math.floor(Math.random() * 1000)}`,
         orderNumber,
         invoiceNumber,
         buyerId: currentUser?.id || 'guest-warga',
-        buyerName: orderData.buyerName || currentUser?.name || 'Warga Desa Sukamaju',
+        buyerName: orderData.buyerName || currentUser?.name || `Warga ${settings.villageName}`,
         buyerPhone: orderData.buyerPhone || currentUser?.phone || '',
         buyerAddress: orderData.buyerAddress,
         buyerDusun: orderData.buyerDusun,
@@ -1088,6 +1257,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         storeName,
         sellerId,
         sellerName,
+        sellerWhatsapp,
         items: items.map((it) => ({
           productId: it.product.id,
           productName: it.product.name,
@@ -1138,7 +1308,105 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setOrders((prev) => [...newOrders, ...prev]);
     clearCart();
+
+    // 1. Mobile Vibration (Notifikasi Getar di HP Penjual/Perangkat)
+    if (typeof window !== 'undefined' && 'navigator' in window && navigator.vibrate) {
+      try {
+        navigator.vibrate([300, 150, 300, 150, 450]);
+      } catch (err) {
+        console.warn('Vibration API not allowed:', err);
+      }
+    }
+
+    // 2. Mainkan nada dering pesanan baru
+    playCheckoutChime();
+
+    // 3. Notifikasi Sistem / Web Push di Layar HP & Browser Penjual
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'granted') {
+        newOrders.forEach((ord) => {
+          try {
+            new Notification(`🔔 Orderan Baru Masuk: Lapak ${ord.sellerName || ord.storeName}!`, {
+              body: `Invoice #${ord.invoiceNumber}: Pembeli ${ord.buyerName} memesan ${ord.items.length} jenis produk (${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(ord.total)}). Segera siapkan!`,
+              icon: '/favicon.ico',
+            });
+          } catch {
+            // ignore notification restriction
+          }
+        });
+      } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then((perm) => {
+          if (perm === 'granted') {
+            newOrders.forEach((ord) => {
+              try {
+                new Notification(`🔔 Orderan Baru Masuk: Lapak ${ord.sellerName || ord.storeName}!`, {
+                  body: `Invoice #${ord.invoiceNumber}: Pembeli ${ord.buyerName} (${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(ord.total)}). Segera siapkan!`,
+                });
+              } catch {
+                // ignore
+              }
+            });
+          }
+        });
+      }
+    }
+
+    // 4. In-App Notifications untuk Penjual & Pembeli
+    newOrders.forEach((ord) => {
+      addNotification({
+        title: `Pesanan Masuk Lapak ${ord.sellerName || ord.storeName}! 📦`,
+        message: `Order #${ord.orderNumber} dari ${ord.buyerName} (${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(ord.total)}) telah masuk ke sistem. Rincian otomatis disiapkan ke nomor WhatsApp penjual (${ord.sellerWhatsapp || 'WA Penjual'}).`,
+        type: 'order_update',
+      });
+    });
+
+    const storeNames = Array.from(new Set(newOrders.map((o) => o.storeName))).join(', ');
+    const totalSemua = newOrders.reduce((sum, o) => sum + o.total, 0);
+    addNotification({
+      title: 'Pesanan Berhasil Dibuat! 🔔',
+      message: `${newOrders.length} pesanan (${storeNames}) senilai ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(totalSemua)} berhasil dibuat. Penjual telah menerima notifikasi di HP & WhatsApp!`,
+      type: 'checkout',
+    });
+
     return newOrders;
+  };
+
+  const sendOrderWhatsAppToSeller = (order: Order) => {
+    const matchedStore = stores.find((s) => s.id === order.storeId || s.name === order.sellerName);
+    const rawNumber = order.sellerWhatsapp || matchedStore?.whatsapp || matchedStore?.phone || '6285712345678';
+    let cleanNumber = rawNumber.replace(/[^0-9]/g, '');
+    if (cleanNumber.startsWith('0')) cleanNumber = '62' + cleanNumber.slice(1);
+
+    const itemsSummary = order.items
+      .map(
+        (i) =>
+          `• ${i.quantity}x ${i.productName}${
+            i.catatanProduk ? ` (Catatan: ${i.catatanProduk})` : ''
+          } - ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(i.price * i.quantity)}`
+      )
+      .join('\n');
+
+    const message =
+      `*🔔 ORDERAN BARU MASUK - PASAR DESA ${settings.villageName.toUpperCase()}*\n\n` +
+      `Halo Lapak *${order.sellerName || order.storeName}*,\n` +
+      `Pesanan baru telah masuk di aplikasi Pasar Desa:\n\n` +
+      `📋 *No. Invoice:* ${order.invoiceNumber || order.orderNumber}\n` +
+      `👤 *Nama Pembeli:* ${order.buyerName}\n` +
+      `📞 *No. HP Pembeli:* ${order.buyerPhone}\n` +
+      `📍 *Alamat Pengantaran:* ${order.buyerAddress}\n` +
+      `🚚 *Metode Pengiriman:* ${
+        order.deliveryMethod === 'antar_desa' ? 'Diantar Kurir Desa' : 'Ambil di Lapak'
+      }\n` +
+      `💳 *Metode Pembayaran:* ${order.paymentMethod.toUpperCase()} (${
+        order.paymentStatus === 'paid' ? 'Sudah Lunas' : 'Menunggu Pembayaran / COD'
+      })\n\n` +
+      `📦 *Rincian Produk:*\n${itemsSummary}\n\n` +
+      `💵 *Ongkos Kirim:* ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(order.ongkir || 0)}\n` +
+      `💰 *Total Pembayaran:* ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(order.total)}\n` +
+      (order.buyerNote ? `📝 *Catatan Tambahan Pembeli:* ${order.buyerNote}\n\n` : '\n') +
+      `Mohon segera dicek dan dipersiapkan ya kak. Terima kasih! 🙏`;
+
+    window.open(`https://wa.me/${cleanNumber}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
   const updateOrderStatus = (orderId: string, status: OrderStatus) => {
@@ -1151,6 +1419,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             updatedAt: new Date().toISOString(),
           };
           saveOrderToFirestore(updated);
+
+          // Audio chime & notification on status update
+          if (status === 'selesai') {
+            playOrderCompleteChime();
+            addNotification({
+              title: 'Pesanan Selesai! 🎉',
+              message: `Pesanan #${ord.orderNumber} telah selesai diantar dan diterima warga. Terima kasih!`,
+              type: 'order_completed',
+            });
+          } else if (status === 'diproses') {
+            playNotificationChime();
+            addNotification({
+              title: 'Pesanan Sedang Disiapkan 👨‍🍳',
+              message: `Pesanan #${ord.orderNumber} sedang disiapkan oleh lapak ${ord.storeName}.`,
+              type: 'order_update',
+            });
+          } else if (status === 'dikirim') {
+            playNotificationChime();
+            addNotification({
+              title: 'Pesanan Sedang Dikirim 🚚',
+              message: `Pesanan #${ord.orderNumber} sedang dalam perjalanan diantar kurir desa.`,
+              type: 'order_update',
+            });
+          } else {
+            playNotificationChime();
+            addNotification({
+              title: `Status Pesanan #${ord.orderNumber}`,
+              message: `Status pesanan diubah menjadi: ${status}.`,
+              type: 'order_update',
+            });
+          }
+
           return updated;
         }
         return ord;
@@ -1309,6 +1609,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     bankName?: string;
     bankAccountNumber?: string;
     bankAccountHolder?: string;
+    openingHours?: string;
+    closedDays?: string;
   }): Promise<Store> => {
     if (!currentUser) throw new Error('Silakan masuk terlebih dahulu untuk membuka lapak.');
 
@@ -1426,6 +1728,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeTab,
         selectedCategory,
         searchQuery,
+        searchHistory,
+        addSearchHistory,
+        removeSearchHistory,
+        clearSearchHistory,
         selectedProduct,
         selectedNews,
         isAuthModalOpen,
@@ -1490,6 +1796,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toggleFavorite,
         isFavorite,
 
+        // Notifications & Sound
+        notifications,
+        unreadNotificationCount,
+        addNotification,
+        markAllNotificationsRead,
+        clearNotifications,
+        isSoundEnabled,
+        setIsSoundEnabled,
+        playTestChime,
+
         // Stores
         updateStore,
         verifyStore,
@@ -1498,6 +1814,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         // Orders & Deliveries
         createOrder,
+        sendOrderWhatsAppToSeller,
         updateOrderStatus,
         assignCourierToOrder,
         updateDeliveryStatus,

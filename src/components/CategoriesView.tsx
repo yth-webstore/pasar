@@ -37,6 +37,7 @@ export const CategoriesView: React.FC = () => {
     setSelectedCategory,
     searchQuery,
     setSearchQuery,
+    settings,
   } = useApp();
 
   const [sortBy, setSortBy] = useState<'terbaru' | 'terlaris' | 'termurah' | 'termahal' | 'rating'>('terbaru');
@@ -103,7 +104,7 @@ export const CategoriesView: React.FC = () => {
               {activeCategoryObj ? `Kategori: ${activeCategoryObj.name}` : 'Katalog Produk Desa'}
             </h1>
             <p className="text-xs text-neutral-500 font-medium mt-0.5">
-              Menampilkan {filteredProducts.length} produk dari seluruh petani dan UMKM Desa Sukamaju
+              Menampilkan {filteredProducts.length} produk dari seluruh petani dan UMKM {settings.villageName}
             </p>
           </div>
 

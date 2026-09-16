@@ -362,7 +362,7 @@ export const ProfileView: React.FC = () => {
           <button
             onClick={() => {
               window.open(
-                `https://wa.me/${settings.emergencyContact.replace(/[^0-9]/g, '')}?text=Halo%20Admin%20BUMDes%20Sukamaju`,
+                `https://wa.me/${settings.emergencyContact.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Halo Admin BUMDes ${settings.villageName}`)}`,
                 '_blank'
               );
             }}

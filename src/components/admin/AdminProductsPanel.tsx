@@ -4,7 +4,7 @@ import { useApp } from '../../context/AppContext';
 import { formatRupiah } from '../../utils/seo';
 
 export const AdminProductsPanel: React.FC = () => {
-  const { products, deleteProduct, categories } = useApp();
+  const { products, deleteProduct, categories, settings } = useApp();
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
@@ -32,7 +32,7 @@ export const AdminProductsPanel: React.FC = () => {
             Katalog Produk & Komoditas Desa ({products.length})
           </h2>
           <p className="text-xs text-emerald-800 mt-0.5">
-            Semua produk yang dijual oleh pedagang dan UMKM di Pasar Desa Sukamaju.
+            Semua produk yang dijual oleh pedagang dan UMKM di Pasar Desa {settings.villageName}.
           </p>
         </div>
       </div>

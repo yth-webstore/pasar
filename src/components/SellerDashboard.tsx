@@ -14,6 +14,8 @@ import {
   Eye,
   CheckCircle2,
   XCircle,
+  MessageCircle,
+  Bell,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Product, OrderStatus } from '../types';
@@ -368,6 +370,18 @@ export const SellerDashboard: React.FC = () => {
       {/* Content: Pesanan Toko */}
       {activeTab === 'pesanan' && (
         <div className="space-y-3">
+          {/* Notification Alert Banner */}
+          {sellerOrders.some((o) => o.status === 'menunggu') && (
+            <div className="bg-amber-50 border border-amber-200 p-3 rounded-2xl flex items-center justify-between text-xs text-amber-900 shadow-2xs">
+              <div className="flex items-center gap-2">
+                <Bell className="w-4 h-4 text-amber-700 shrink-0 animate-bounce" />
+                <span>
+                  Ada <strong>{sellerOrders.filter((o) => o.status === 'menunggu').length} pesanan baru</strong> masuk yang menunggu konfirmasi. Peringatan notifikasi telah dikirimkan ke HP Anda!
+                </span>
+              </div>
+            </div>
+          )}
+
           {sellerOrders.length === 0 ? (
             <div className="bg-white rounded-3xl border border-neutral-200 p-8 text-center text-neutral-500">
               Belum ada pesanan masuk untuk toko Anda.
@@ -380,8 +394,18 @@ export const SellerDashboard: React.FC = () => {
               >
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-100 pb-2">
                   <div className="text-xs">
-                    <span className="font-bold text-neutral-900">{ord.invoiceNumber}</span>
-                    <span className="text-neutral-400 text-[11px]"> • {ord.createdAt}</span>
+                    <div className="font-bold text-neutral-900 text-xs">
+                      {ord.sellerName || currentUser?.name || 'Lapak Desa'}
+                    </div>
+                    {/* Tag kategori berada di bawah nama lapak */}
+                    <div className="mt-0.5">
+                      <span className="inline-block bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-semibold px-2 py-0.5 rounded-md">
+                        {ord.items[0]?.categoryName || 'Makanan & Olahan'}
+                      </span>
+                    </div>
+                    <div className="text-neutral-500 text-[11px] mt-1">
+                      Invoice: <span className="font-semibold text-neutral-800">{ord.invoiceNumber}</span> • {ord.createdAt}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] font-bold uppercase bg-neutral-100 px-2 py-0.5 rounded text-neutral-700">
@@ -410,7 +434,25 @@ export const SellerDashboard: React.FC = () => {
                     Total: <strong className="text-emerald-900 text-sm">{formatRupiah(ord.total)}</strong>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {/* Hubungi Pembeli via WhatsApp */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const raw = ord.buyerPhone.replace(/[^0-9]/g, '');
+                        const clean = raw.startsWith('0') ? '62' + raw.slice(1) : raw;
+                        const msg = encodeURIComponent(
+                          `Halo Kak ${ord.buyerName}, kami dari Lapak *${ord.sellerName}* telah menerima orderan Anda (${ord.invoiceNumber}). Pesanan sedang kami siapkan ya!`
+                        );
+                        window.open(`https://wa.me/${clean}?text=${msg}`, '_blank');
+                      }}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition"
+                      title="Hubungi Pembeli via WhatsApp"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>WhatsApp Pembeli</span>
+                    </button>
+
                     {ord.paymentProofUrl && (
                       <button
                         onClick={() => setProofModalUrl(ord.paymentProofUrl!)}

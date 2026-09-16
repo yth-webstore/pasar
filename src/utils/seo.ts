@@ -2,7 +2,7 @@ import { Product, VillageNews, Category } from '../types';
 
 export function updatePageSEO(title: string, description: string, url?: string, ogImage?: string) {
   // Update document title
-  const fullTitle = title.includes('Pasar Desa') ? title : `${title} | Pasar Desa Mandiri Sukamaju`;
+  const fullTitle = title.includes('Pasar Desa') ? title : `${title} | Pasar Desa Mandiri Mekar Terus`;
   document.title = fullTitle;
 
   // Update meta description
@@ -69,7 +69,7 @@ export function injectProductJsonLd(product: Product) {
         name: product.sellerName,
         address: {
           '@type': 'PostalAddress',
-          addressLocality: 'Desa Sukamaju',
+          addressLocality: 'Desa Mekar Terus',
           addressRegion: 'Jawa Tengah',
           addressCountry: 'ID',
         },
@@ -103,7 +103,7 @@ export function injectNewsJsonLd(news: VillageNews) {
     datePublished: news.date,
     author: {
       '@type': 'Organization',
-      name: 'Pemerintah Desa Sukamaju & BUMDes',
+      name: 'Pemerintah Desa Mekar Terus & BUMDes',
     },
     publisher: {
       '@type': 'Organization',

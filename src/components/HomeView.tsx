@@ -162,28 +162,6 @@ export const HomeView: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 self-start sm:self-auto">
-            {/* Tombol Favorit Langsung di Kategori Kebutuhan Warga */}
-            <button
-              id="btn-kategori-favorit"
-              onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-              className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition ${
-                showFavoritesOnly
-                  ? 'bg-red-500 text-white border-red-600 shadow-xs'
-                  : 'bg-white hover:bg-red-50 text-red-600 border-red-200 shadow-2xs'
-              }`}
-              title="Lihat Produk Favorit Pilihan Anda"
-            >
-              <Heart className={`w-3.5 h-3.5 ${showFavoritesOnly || favorites.length > 0 ? 'fill-current' : ''}`} />
-              <span>Favorit Warga</span>
-              <span
-                className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
-                  showFavoritesOnly ? 'bg-white text-red-600' : 'bg-red-100 text-red-700'
-                }`}
-              >
-                {favorites.length}
-              </span>
-            </button>
-
             <button
               onClick={() => {
                 setSelectedCategory(null);
@@ -197,85 +175,7 @@ export const HomeView: React.FC = () => {
           </div>
         </div>
 
-        {/* Favorite Products Quick Showcase if active */}
-        {showFavoritesOnly && (
-          <div className="bg-red-50/70 border border-red-200 rounded-3xl p-4 sm:p-5 space-y-3 transition-all animate-fadeIn">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-red-500 text-white flex items-center justify-center shadow-xs">
-                  <Heart className="w-4 h-4 fill-white" />
-                </div>
-                <div>
-                  <h3 className="font-extrabold text-sm text-neutral-900">
-                    Daftar Produk Favorit Anda ({favoriteProducts.length})
-                  </h3>
-                  <p className="text-[11px] text-neutral-500">
-                    Produk yang telah Anda simpan untuk dibeli nanti
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowFavoritesOnly(false)}
-                className="text-xs text-neutral-500 hover:text-neutral-800 font-bold px-2 py-1 rounded-lg hover:bg-neutral-100 transition"
-              >
-                Tutup
-              </button>
-            </div>
-
-            {favoriteProducts.length === 0 ? (
-              <div className="text-center py-6 bg-white rounded-2xl border border-red-100 p-4">
-                <Heart className="w-8 h-8 text-neutral-300 mx-auto mb-2" />
-                <p className="text-xs font-bold text-neutral-700">Belum ada produk favorit</p>
-                <p className="text-[11px] text-neutral-500 mt-0.5">
-                  Klik ikon hati pada produk apa pun di bawah untuk menyimpannya di sini.
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {favoriteProducts.map((p) => (
-                  <ProductCard key={p.id} product={p} />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 sm:gap-3">
-          {/* Direct Favorite Card in Category Grid */}
-          <button
-            id="cat-btn-favorit"
-            onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-            className={`group p-2.5 sm:p-3 rounded-2xl border shadow-2xs hover:shadow-xs transition-all duration-200 flex flex-col items-center text-center cursor-pointer ${
-              showFavoritesOnly
-                ? 'bg-red-500 text-white border-red-600'
-                : 'bg-white hover:bg-red-50/80 border-red-200/90 hover:border-red-400'
-            }`}
-          >
-            <div
-              className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl transition-colors flex items-center justify-center mb-1.5 shadow-2xs ${
-                showFavoritesOnly
-                  ? 'bg-white text-red-500'
-                  : 'bg-red-50 text-red-600 group-hover:bg-red-500 group-hover:text-white'
-              }`}
-            >
-              <Heart className={`w-5 h-5 ${favorites.length > 0 ? 'fill-current' : ''}`} />
-            </div>
-            <span
-              className={`text-[11px] sm:text-xs font-bold line-clamp-1 ${
-                showFavoritesOnly ? 'text-white' : 'text-neutral-800 group-hover:text-red-700'
-              }`}
-            >
-              Favorit
-            </span>
-            <span
-              className={`text-[9px] font-medium ${
-                showFavoritesOnly ? 'text-red-100' : 'text-neutral-400'
-              }`}
-            >
-              {favorites.length} barang
-            </span>
-          </button>
-
+        <div className="grid grid-cols-4 sm:grid-cols-7 gap-2 sm:gap-3">
           {categories.map((cat) => {
             const IconComp = CATEGORY_ICON_MAP[cat.icon] || HelpCircle;
             const count = products.filter((p) => p.categoryId === cat.id).length;
@@ -343,7 +243,7 @@ export const HomeView: React.FC = () => {
             </div>
             <div>
               <h2 className="text-base sm:text-lg font-extrabold text-neutral-900 tracking-tight">
-                Paling Laris di Desa Sukamaju
+                Paling Laris di {settings.villageName}
               </h2>
               <p className="text-[11px] text-neutral-500">
                 Paling banyak dibeli dan direkomendasikan warga
@@ -392,7 +292,7 @@ export const HomeView: React.FC = () => {
                   Kabar & Pengumuman Balai Desa
                 </h2>
                 <p className="text-[11px] text-neutral-500">
-                  Informasi resmi dari Pemdes dan BUMDes Sukamaju
+                  Informasi resmi dari Pemdes dan {settings.bumdesName || 'BUMDes'} {settings.villageName}
                 </p>
               </div>
             </div>
@@ -495,7 +395,7 @@ export const HomeView: React.FC = () => {
             {settings.bumdesName}
           </h3>
           <p className="text-xs text-emerald-100 mt-1 max-w-lg">
-            {settings.tagline} • Setiap pembelian Anda langsung membantu perekonomian petani dan UMKM lokal Desa Sukamaju.
+            {settings.tagline} • Setiap pembelian Anda langsung membantu perekonomian petani dan UMKM lokal {settings.villageName}.
           </p>
         </div>
         <div className="shrink-0">

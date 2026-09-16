@@ -1,5 +1,5 @@
 import React from 'react';
-import { Star, MessageCircle, ShoppingCart, Heart, MapPin } from 'lucide-react';
+import { Star, MessageCircle, ShoppingCart, Heart, MapPin, Share2 } from 'lucide-react';
 import { Product } from '../types';
 import { useApp } from '../context/AppContext';
 import { formatRupiah } from '../utils/seo';
@@ -9,7 +9,7 @@ interface ProductCardProps {
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
-  const { setSelectedProduct, addToCart, toggleFavorite, isFavorite, dataSaverMode } = useApp();
+  const { setSelectedProduct, addToCart, toggleFavorite, isFavorite, dataSaverMode, openShareProduct } = useApp();
   const favorite = isFavorite(product.id);
 
   const discountPercent =
@@ -24,6 +24,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       `Halo ${product.sellerName}, saya melihat produk "${product.name}" di Pasar Desa Mandiri. Apakah stok masih tersedia?`
     );
     window.open(`https://wa.me/${cleanNumber}?text=${text}`, '_blank');
+  };
+
+  const handleShareProduct = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    openShareProduct(product);
   };
 
   const handleQuickAdd = (e: React.MouseEvent) => {
@@ -145,6 +150,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               aria-label="Hubungi Penjual via WhatsApp"
             >
               <MessageCircle className="w-4 h-4" />
+            </button>
+
+            {/* Social Media Share button */}
+            <button
+              id={`share-btn-${product.id}`}
+              onClick={handleShareProduct}
+              className="p-1.5 text-neutral-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition"
+              title="Bagikan ke Media Sosial (WhatsApp, FB, Twitter, dll)"
+              aria-label="Bagikan Produk ke Media Sosial"
+            >
+              <Share2 className="w-4 h-4" />
             </button>
 
             {/* Quick Add to Cart button */}

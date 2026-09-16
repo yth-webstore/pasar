@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Sparkles,
   Flame,
@@ -17,6 +17,9 @@ import {
   Wrench,
   HelpCircle,
   MessageCircle,
+  Heart,
+  Search,
+  X,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { BannerSlider } from './BannerSlider';
@@ -39,12 +42,30 @@ export const HomeView: React.FC = () => {
     categories,
     news,
     ads,
+    favorites,
+    searchQuery,
+    setSearchQuery,
     setSelectedCategory,
     setActiveTab,
     setSelectedNews,
     settings,
   } = useApp();
 
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const q = searchQuery.toLowerCase();
+    return products.filter((p) => {
+      const matchName = p.name.toLowerCase().includes(q);
+      const matchCategory = p.categoryName.toLowerCase().includes(q);
+      const matchSeller = p.sellerName.toLowerCase().includes(q);
+      const matchDesc = p.description.toLowerCase().includes(q);
+      return matchName || matchCategory || matchSeller || matchDesc;
+    });
+  }, [products, searchQuery]);
+
+  const favoriteProducts = products.filter((p) => favorites.includes(p.id));
   const promoProducts = products.filter((p) => p.isPromo);
   const popularProducts = products.filter((p) => p.isPopular || p.soldCount > 50);
   const latestProducts = [...products].reverse().slice(0, 6);
@@ -56,6 +77,53 @@ export const HomeView: React.FC = () => {
 
   return (
     <div id="home-view" className="space-y-6 sm:space-y-8 pb-20">
+      {/* 0. Dedicated Search Results Section if User Searched */}
+      {searchQuery.trim() && (
+        <section id="home-search-results-section" className="bg-emerald-50/80 border border-emerald-200 rounded-3xl p-4 sm:p-5 space-y-3 animate-fadeIn">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base sm:text-lg font-black text-neutral-900 flex items-center gap-2">
+                <Search className="w-5 h-5 text-emerald-700 shrink-0" />
+                <span>Hasil Pencarian: "{searchQuery}"</span>
+              </h2>
+              <p className="text-xs text-neutral-600 mt-0.5">
+                Ditemukan {searchResults.length} produk di Pasar Desa
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setActiveTab('kategori')}
+                className="text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-white border border-emerald-200 px-3 py-1.5 rounded-xl transition shadow-2xs"
+              >
+                Buka Filter Lengkap →
+              </button>
+              <button
+                onClick={() => setSearchQuery('')}
+                className="p-1.5 text-neutral-500 hover:text-red-600 hover:bg-white rounded-xl transition"
+                title="Hapus pencarian"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {searchResults.length === 0 ? (
+            <div className="bg-white rounded-2xl p-6 text-center border border-emerald-100">
+              <p className="text-sm font-bold text-neutral-700">Produk tidak ditemukan</p>
+              <p className="text-xs text-neutral-500 mt-1">
+                Coba gunakan kata kunci lain seperti beras, sayur, telur, ikan, madu, atau keripik.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
+              {searchResults.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
       {/* 1. Hero Banner Slider */}
       <BannerSlider />
 
@@ -81,9 +149,9 @@ export const HomeView: React.FC = () => {
         </div>
       )}
 
-      {/* 3. Kategori Produk */}
+      {/* 3. Kategori Produk & Akses Favorit Langsung */}
       <section id="category-section" className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
             <h2 className="text-base sm:text-lg font-extrabold text-neutral-900 tracking-tight">
               Kategori Kebutuhan Warga
@@ -92,19 +160,122 @@ export const HomeView: React.FC = () => {
               Pilihan komoditas tani, sembako, kuliner, dan jasa warga se-desa
             </p>
           </div>
-          <button
-            onClick={() => {
-              setSelectedCategory(null);
-              setActiveTab('kategori');
-            }}
-            className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
-          >
-            <span>Semua</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            {/* Tombol Favorit Langsung di Kategori Kebutuhan Warga */}
+            <button
+              id="btn-kategori-favorit"
+              onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+              className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition ${
+                showFavoritesOnly
+                  ? 'bg-red-500 text-white border-red-600 shadow-xs'
+                  : 'bg-white hover:bg-red-50 text-red-600 border-red-200 shadow-2xs'
+              }`}
+              title="Lihat Produk Favorit Pilihan Anda"
+            >
+              <Heart className={`w-3.5 h-3.5 ${showFavoritesOnly || favorites.length > 0 ? 'fill-current' : ''}`} />
+              <span>Favorit Warga</span>
+              <span
+                className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
+                  showFavoritesOnly ? 'bg-white text-red-600' : 'bg-red-100 text-red-700'
+                }`}
+              >
+                {favorites.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => {
+                setSelectedCategory(null);
+                setActiveTab('kategori');
+              }}
+              className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 px-2.5 py-1.5 rounded-xl hover:bg-emerald-50 transition"
+            >
+              <span>Lihat Katalog</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-4 sm:grid-cols-7 gap-2 sm:gap-3">
+        {/* Favorite Products Quick Showcase if active */}
+        {showFavoritesOnly && (
+          <div className="bg-red-50/70 border border-red-200 rounded-3xl p-4 sm:p-5 space-y-3 transition-all animate-fadeIn">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-red-500 text-white flex items-center justify-center shadow-xs">
+                  <Heart className="w-4 h-4 fill-white" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-neutral-900">
+                    Daftar Produk Favorit Anda ({favoriteProducts.length})
+                  </h3>
+                  <p className="text-[11px] text-neutral-500">
+                    Produk yang telah Anda simpan untuk dibeli nanti
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowFavoritesOnly(false)}
+                className="text-xs text-neutral-500 hover:text-neutral-800 font-bold px-2 py-1 rounded-lg hover:bg-neutral-100 transition"
+              >
+                Tutup
+              </button>
+            </div>
+
+            {favoriteProducts.length === 0 ? (
+              <div className="text-center py-6 bg-white rounded-2xl border border-red-100 p-4">
+                <Heart className="w-8 h-8 text-neutral-300 mx-auto mb-2" />
+                <p className="text-xs font-bold text-neutral-700">Belum ada produk favorit</p>
+                <p className="text-[11px] text-neutral-500 mt-0.5">
+                  Klik ikon hati pada produk apa pun di bawah untuk menyimpannya di sini.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {favoriteProducts.map((p) => (
+                  <ProductCard key={p.id} product={p} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 sm:gap-3">
+          {/* Direct Favorite Card in Category Grid */}
+          <button
+            id="cat-btn-favorit"
+            onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+            className={`group p-2.5 sm:p-3 rounded-2xl border shadow-2xs hover:shadow-xs transition-all duration-200 flex flex-col items-center text-center cursor-pointer ${
+              showFavoritesOnly
+                ? 'bg-red-500 text-white border-red-600'
+                : 'bg-white hover:bg-red-50/80 border-red-200/90 hover:border-red-400'
+            }`}
+          >
+            <div
+              className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl transition-colors flex items-center justify-center mb-1.5 shadow-2xs ${
+                showFavoritesOnly
+                  ? 'bg-white text-red-500'
+                  : 'bg-red-50 text-red-600 group-hover:bg-red-500 group-hover:text-white'
+              }`}
+            >
+              <Heart className={`w-5 h-5 ${favorites.length > 0 ? 'fill-current' : ''}`} />
+            </div>
+            <span
+              className={`text-[11px] sm:text-xs font-bold line-clamp-1 ${
+                showFavoritesOnly ? 'text-white' : 'text-neutral-800 group-hover:text-red-700'
+              }`}
+            >
+              Favorit
+            </span>
+            <span
+              className={`text-[9px] font-medium ${
+                showFavoritesOnly ? 'text-red-100' : 'text-neutral-400'
+              }`}
+            >
+              {favorites.length} barang
+            </span>
+          </button>
+
           {categories.map((cat) => {
             const IconComp = CATEGORY_ICON_MAP[cat.icon] || HelpCircle;
             const count = products.filter((p) => p.categoryId === cat.id).length;

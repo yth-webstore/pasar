@@ -13,9 +13,16 @@ import {
   Sparkles,
   Loader2,
   CheckCircle2,
+  KeyRound,
+  Building2,
+  Info,
+  Clock,
+  ShieldAlert,
+  MessageCircle,
+  ArrowRight,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { UserRole } from '../types';
+import { UserRole, User } from '../types';
 
 export const AuthModal: React.FC = () => {
   const {
@@ -24,11 +31,11 @@ export const AuthModal: React.FC = () => {
     login,
     register,
     loginWithGoogle,
-    switchRole,
     isAuthLoading,
     authError,
     setAuthError,
-    currentUser,
+    settings,
+    setActiveTab,
   } = useApp();
 
   const [tab, setTab] = useState<'login' | 'register'>('login');
@@ -42,11 +49,20 @@ export const AuthModal: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [dusun, setDusun] = useState('Dusun Krajan RT 02');
+  
+  // Seller specific
   const [shopName, setShopName] = useState('');
   const [shopDescription, setShopDescription] = useState('');
   const [bankName, setBankName] = useState('BRI Unit Desa');
   const [bankAccountNumber, setBankAccountNumber] = useState('');
   const [bankAccountHolder, setBankAccountHolder] = useState('');
+
+  // Admin manual approval registration fields
+  const [adminPosition, setAdminPosition] = useState('');
+  const [adminReason, setAdminReason] = useState('');
+  const [adminPendingSubmitted, setAdminPendingSubmitted] = useState(false);
+  const [submittedAdminUser, setSubmittedAdminUser] = useState<User | null>(null);
+
   const [localError, setLocalError] = useState<string | null>(null);
 
   if (!isAuthModalOpen) return null;
@@ -64,14 +80,13 @@ export const AuthModal: React.FC = () => {
     }
 
     if (password && password.length < 6) {
-      setLocalError('Kata sandi minimal 6 karakter untuk akun Firebase.');
+      setLocalError('Kata sandi minimal 6 karakter.');
       return;
     }
 
-    const success = await login(identifier.trim(), password.trim() || undefined, role);
+    const success = await login(identifier.trim(), password.trim() || undefined);
     if (!success && !password) {
-      // If user didn't provide a password and no matching phone found, ask for password
-      setLocalError('Silakan masukkan kata sandi akun Firebase Anda (minimal 6 karakter).');
+      setLocalError('Silakan masukkan kata sandi akun Anda (minimal 6 karakter).');
     }
   };
 
@@ -89,7 +104,7 @@ export const AuthModal: React.FC = () => {
       return;
     }
     if (!password.trim() || password.length < 6) {
-      setLocalError('Kata sandi Firebase wajib diisi minimal 6 karakter.');
+      setLocalError('Kata sandi wajib diisi minimal 6 karakter.');
       return;
     }
     if (confirmPassword && password !== confirmPassword) {
@@ -102,13 +117,8 @@ export const AuthModal: React.FC = () => {
       phone: identifier.trim(),
       email: email.trim() || undefined,
       password: password.trim(),
-      role,
-      dusun,
-      shopName: role === 'seller' ? shopName.trim() : undefined,
-      shopDescription: role === 'seller' ? shopDescription.trim() : undefined,
-      bankName: role === 'seller' ? bankName.trim() : undefined,
-      bankAccountNumber: role === 'seller' ? bankAccountNumber.trim() : undefined,
-      bankAccountHolder: role === 'seller' ? bankAccountHolder.trim() : undefined,
+      role: 'buyer',
+      dusun: dusun.trim() || 'Dusun Krajan',
     });
 
     if (user) {
@@ -139,76 +149,122 @@ export const AuthModal: React.FC = () => {
             <UserCheck className="w-5 h-5 text-emerald-700" />
             <div>
               <h2 className="text-base font-extrabold text-neutral-900 leading-tight">
-                {tab === 'login' ? 'Masuk ke Pasar Desa' : 'Daftar Akun Warga'}
+                {adminPendingSubmitted
+                  ? 'Status Permohonan Akun Admin'
+                  : tab === 'login'
+                  ? 'Masuk ke Pasar Desa'
+                  : 'Daftar Akun Warga'}
               </h2>
               <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
                 <span className="text-[10px] font-bold text-emerald-800">
-                  Terhubung ke Firebase Auth & Cloud Firestore
+                  {adminPendingSubmitted ? 'Protokol Persetujuan Manual' : 'Sistem Akun Desa & Data Terenkripsi'}
                 </span>
               </div>
             </div>
           </div>
           <button
             id="close-auth-modal-btn"
-            onClick={() => setIsAuthModalOpen(false)}
+            onClick={() => {
+              setIsAuthModalOpen(false);
+              setAdminPendingSubmitted(false);
+            }}
             className="w-8 h-8 rounded-full bg-neutral-200 hover:bg-neutral-300 text-neutral-700 flex items-center justify-center transition"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Quick Demo Logins Bar (1-Click) */}
-        <div className="p-3.5 bg-emerald-50/80 border-b border-emerald-100">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px] font-bold text-emerald-950 flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-amber-500" />
-              Pilih Cepat Profil Demo (1-Klik):
-            </span>
-            <span className="text-[10px] text-emerald-700 font-medium">Uji coba instan</span>
-          </div>
-          <div className="grid grid-cols-3 gap-1.5 text-xs">
-            <button
-              id="demo-buyer-btn"
-              type="button"
-              onClick={() => {
-                switchRole('buyer');
-                setIsAuthModalOpen(false);
-              }}
-              className="p-2 rounded-xl bg-white border border-emerald-200 hover:border-emerald-500 text-center font-bold text-emerald-900 shadow-xs transition"
-            >
-              <UserIcon className="w-3.5 h-3.5 mx-auto text-emerald-700 mb-0.5" />
-              <span>Pembeli</span>
-            </button>
-            <button
-              id="demo-seller-btn"
-              type="button"
-              onClick={() => {
-                switchRole('seller');
-                setIsAuthModalOpen(false);
-              }}
-              className="p-2 rounded-xl bg-white border border-emerald-200 hover:border-emerald-500 text-center font-bold text-emerald-900 shadow-xs transition"
-            >
-              <Store className="w-3.5 h-3.5 mx-auto text-emerald-700 mb-0.5" />
-              <span>Penjual</span>
-            </button>
-            <button
-              id="demo-admin-btn"
-              type="button"
-              onClick={() => {
-                switchRole('admin');
-                setIsAuthModalOpen(false);
-              }}
-              className="p-2 rounded-xl bg-white border border-emerald-200 hover:border-emerald-500 text-center font-bold text-emerald-900 shadow-xs transition"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 mx-auto text-emerald-700 mb-0.5" />
-              <span>Admin Desa</span>
-            </button>
-          </div>
-        </div>
+        {adminPendingSubmitted ? (
+          <div className="p-6 text-center flex flex-col items-center justify-center space-y-4 animate-in fade-in">
+            <div className="w-16 h-16 rounded-3xl bg-amber-100 border-2 border-amber-300 flex items-center justify-center text-amber-700 shadow-inner">
+              <Clock className="w-8 h-8 animate-pulse" />
+            </div>
 
-        {/* Tab switch */}
-        <div className="flex border-b border-neutral-200 bg-white">
+            <div className="space-y-1">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 border border-amber-200 text-amber-900 text-xs font-bold">
+                <ShieldAlert className="w-3.5 h-3.5 text-amber-700" />
+                Persetujuan Manual (Approval Flow)
+              </div>
+              <h3 className="text-lg font-black text-neutral-900 pt-1">
+                Permohonan Admin Sukses Diajukan!
+              </h3>
+              <p className="text-xs text-neutral-600 max-w-sm leading-relaxed mx-auto">
+                Demi perlindungan kas BUMDes dan integritas data warga, akun admin baru berstatus{' '}
+                <strong className="text-amber-800 font-bold">Menunggu Persetujuan Manual</strong> oleh Administrator Utama / Kepala Desa.
+              </p>
+            </div>
+
+            <div className="w-full bg-neutral-50 rounded-2xl border border-neutral-200 p-4 text-left text-xs space-y-2.5">
+              <div className="flex justify-between border-b border-neutral-200 pb-2">
+                <span className="text-neutral-500 font-medium">Nama Pemohon:</span>
+                <span className="font-bold text-neutral-900">{submittedAdminUser?.name}</span>
+              </div>
+              <div className="flex justify-between border-b border-neutral-200 pb-2">
+                <span className="text-neutral-500 font-medium">Jabatan / Satgas:</span>
+                <span className="font-bold text-neutral-900">{submittedAdminUser?.adminPosition || 'Pengurus Desa'}</span>
+              </div>
+              <div className="flex justify-between border-b border-neutral-200 pb-2">
+                <span className="text-neutral-500 font-medium">Domisili / Wilayah:</span>
+                <span className="font-bold text-neutral-900">{submittedAdminUser?.dusun}</span>
+              </div>
+              <div className="flex justify-between border-b border-neutral-200 pb-2">
+                <span className="text-neutral-500 font-medium">No. WhatsApp:</span>
+                <span className="font-bold text-neutral-900">{submittedAdminUser?.phone}</span>
+              </div>
+              <div className="flex justify-between items-center pt-0.5">
+                <span className="text-neutral-500 font-medium">Status Akun:</span>
+                <span className="px-2.5 py-1 rounded-full bg-amber-200/80 text-amber-900 font-black text-[11px] flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-ping" />
+                  Menunggu Review Admin Utama
+                </span>
+              </div>
+            </div>
+
+            <div className="w-full space-y-2 pt-2 text-xs">
+              <button
+                id="view-admin-status-btn"
+                type="button"
+                onClick={() => {
+                  setIsAuthModalOpen(false);
+                  setActiveTab('admin');
+                  setAdminPendingSubmitted(false);
+                }}
+                className="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-md transition"
+              >
+                <span>Buka Dasbor Status Permohonan Admin</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+
+              <a
+                href={`https://wa.me/${(settings.villageWhatsapp || '6281234567890').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                  `Halo Super Admin Desa Sukamaju, saya ${submittedAdminUser?.name} (${submittedAdminUser?.adminPosition || 'Pengurus Desa'}) baru saja mendaftar permohonan akun Admin Pasar Desa. Mohon verifikasi dan persetujuannya di sistem. Terima kasih.`
+                )}`}
+                target="_blank"
+                rel="noreferrer"
+                className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>Konfirmasi Langsung ke Admin Utama via WA</span>
+              </a>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAuthModalOpen(false);
+                  setActiveTab('beranda');
+                  setAdminPendingSubmitted(false);
+                }}
+                className="w-full py-2 text-neutral-600 hover:text-neutral-900 text-xs font-semibold"
+              >
+                Kembali ke Beranda Pasar Desa
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Tab switch */}
+            <div className="flex border-b border-neutral-200 bg-white">
           <button
             id="tab-login-btn"
             onClick={() => {
@@ -276,37 +332,17 @@ export const AuthModal: React.FC = () => {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
               />
             </svg>
-            <span>{isAuthLoading ? 'Menghubungkan...' : 'Lanjut dengan Google (Firebase)'}</span>
+            <span>{isAuthLoading ? 'Menghubungkan...' : 'Lanjut dengan Akun Google'}</span>
           </button>
 
           <div className="flex items-center gap-2 my-2">
             <div className="flex-1 h-px bg-neutral-200" />
-            <span className="text-[11px] text-neutral-400 font-medium">atau via form desa</span>
+            <span className="text-[11px] text-neutral-400 font-medium">atau via form pendaftaran</span>
             <div className="flex-1 h-px bg-neutral-200" />
           </div>
 
           {tab === 'login' ? (
             <form onSubmit={handleLoginSubmit} className="space-y-3.5">
-              <div>
-                <label className="font-bold text-neutral-700 block mb-1">Masuk Sebagai:</label>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {(['buyer', 'seller', 'admin'] as const).map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => setRole(r)}
-                      className={`py-2 rounded-xl font-bold transition text-xs capitalize ${
-                        role === r
-                          ? 'bg-emerald-700 text-white shadow-xs'
-                          : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-                      }`}
-                    >
-                      {r === 'buyer' ? 'Pembeli' : r === 'seller' ? 'Penjual' : 'Admin'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               <div>
                 <label className="font-bold text-neutral-700 block mb-1">
                   Nomor WhatsApp atau Email *
@@ -330,7 +366,7 @@ export const AuthModal: React.FC = () => {
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="font-bold text-neutral-700">Kata Sandi Firebase *</label>
+                  <label className="font-bold text-neutral-700">Kata Sandi Akun *</label>
                   <span className="text-[10px] text-neutral-400">Minimal 6 karakter</span>
                 </div>
                 <div className="relative">
@@ -339,7 +375,7 @@ export const AuthModal: React.FC = () => {
                     id="login-password-input"
                     type={showPassword ? 'text' : 'password'}
                     required
-                    placeholder="Kata sandi akun Anda"
+                    placeholder="Masukkan kata sandi akun Anda"
                     value={password}
                     onChange={(e) => {
                       setPassword(e.target.value);
@@ -366,12 +402,12 @@ export const AuthModal: React.FC = () => {
                 {isAuthLoading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Menghubungkan ke Firebase...</span>
+                    <span>Sedang Memproses Masuk...</span>
                   </>
                 ) : (
                   <>
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>Masuk dengan Firebase</span>
+                    <span>Masuk ke Akun</span>
                   </>
                 )}
               </button>
@@ -379,31 +415,7 @@ export const AuthModal: React.FC = () => {
           ) : (
             <form onSubmit={handleRegisterSubmit} className="space-y-3">
               <div>
-                <label className="font-bold text-neutral-700 block mb-1">Daftar Sebagai:</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setRole('buyer')}
-                    className={`py-2 rounded-xl font-bold transition ${
-                      role === 'buyer' ? 'bg-emerald-700 text-white' : 'bg-neutral-100 text-neutral-700'
-                    }`}
-                  >
-                    Warga Pembeli
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRole('seller')}
-                    className={`py-2 rounded-xl font-bold transition ${
-                      role === 'seller' ? 'bg-emerald-700 text-white' : 'bg-neutral-100 text-neutral-700'
-                    }`}
-                  >
-                    Penjual UMKM
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="font-bold text-neutral-700 block mb-1">Nama Lengkap (KTP) *</label>
+                <label className="font-bold text-neutral-700 block mb-1">Nama Lengkap (Sesuai KTP / Panggilan) *</label>
                 <input
                   id="reg-name-input"
                   type="text"
@@ -419,7 +431,7 @@ export const AuthModal: React.FC = () => {
               </div>
 
               <div>
-                <label className="font-bold text-neutral-700 block mb-1">Nomor WhatsApp / HP *</label>
+                <label className="font-bold text-neutral-700 block mb-1">Nomor WhatsApp / HP Aktif *</label>
                 <input
                   id="reg-phone-input"
                   type="tel"
@@ -441,7 +453,7 @@ export const AuthModal: React.FC = () => {
                 <input
                   id="reg-email-input"
                   type="email"
-                  placeholder="nama@email.com (otomatis dibuat jika kosong)"
+                  placeholder="nama@email.com (opsional)"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full p-2.5 rounded-xl border border-neutral-300 bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 outline-none"
@@ -482,7 +494,7 @@ export const AuthModal: React.FC = () => {
               </div>
 
               <div>
-                <label className="font-bold text-neutral-700 block mb-1">Dusun / RT / RW *</label>
+                <label className="font-bold text-neutral-700 block mb-1">Dusun / RT / RW Domisili *</label>
                 <input
                   id="reg-dusun-input"
                   type="text"
@@ -494,59 +506,12 @@ export const AuthModal: React.FC = () => {
                 />
               </div>
 
-              {role === 'seller' && (
-                <div className="pt-2 border-t border-neutral-200 space-y-2.5 bg-neutral-50 p-3 rounded-2xl">
-                  <div className="font-bold text-emerald-900 flex items-center gap-1.5">
-                    <Store className="w-4 h-4 text-emerald-700" />
-                    <span>Data Usaha & Rekening Toko Desa</span>
-                  </div>
-                  <div>
-                    <label className="font-bold text-neutral-700 block mb-1">Nama Toko / Usaha *</label>
-                    <input
-                      id="reg-shopname-input"
-                      type="text"
-                      required
-                      placeholder="Contoh: Beras Berkah Sukamaju"
-                      value={shopName}
-                      onChange={(e) => setShopName(e.target.value)}
-                      className="w-full p-2 rounded-xl border border-neutral-300 bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="font-bold text-neutral-700 block mb-1">Keterangan Produk Toko</label>
-                    <input
-                      id="reg-shopdesc-input"
-                      type="text"
-                      placeholder="Contoh: Jual beras hasil sawah sendiri & bibit sayur"
-                      value={shopDescription}
-                      onChange={(e) => setShopDescription(e.target.value)}
-                      className="w-full p-2 rounded-xl border border-neutral-300 bg-white"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="font-bold text-neutral-700 block mb-1">Bank / E-Wallet</label>
-                      <input
-                        type="text"
-                        placeholder="BRI / Mandiri / DANA"
-                        value={bankName}
-                        onChange={(e) => setBankName(e.target.value)}
-                        className="w-full p-2 rounded-xl border border-neutral-300 bg-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-bold text-neutral-700 block mb-1">No. Rekening</label>
-                      <input
-                        type="text"
-                        placeholder="1234-xxxx-xxxx"
-                        value={bankAccountNumber}
-                        onChange={(e) => setBankAccountNumber(e.target.value)}
-                        className="w-full p-2 rounded-xl border border-neutral-300 bg-white"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
+              <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs text-emerald-900 flex items-start gap-2">
+                <Store className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Ingin jualan hasil bumi atau produk UMKM?</strong> Semua pengguna yang terdaftar dapat langsung membuka lapak dagang gratis kapan saja melalui menu Profil atau tombol Buka Lapak.
+                </span>
+              </div>
 
               <button
                 id="submit-register-btn"
@@ -557,19 +522,21 @@ export const AuthModal: React.FC = () => {
                 {isAuthLoading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Mendaftarkan ke Firebase...</span>
+                    <span>Mendaftarkan Akun...</span>
                   </>
                 ) : (
                   <>
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>Daftar Akun Baru ke Firebase</span>
+                    <span>Daftar Akun Warga Baru</span>
                   </>
                 )}
               </button>
             </form>
           )}
         </div>
-      </div>
-    </div>
+      </>
+    )}
+  </div>
+</div>
   );
 };

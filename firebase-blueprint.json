@@ -1,70 +1,209 @@
 {
   "entities": {
     "User": {
-      "collection": "users",
-      "fields": {
+      "title": "User",
+      "description": "Profil akun warga pengguna pasar desa (Pembeli, Pedagang, Kurir, Admin)",
+      "type": "object",
+      "properties": {
         "id": { "type": "string", "description": "Unique user ID (Firebase Auth UID)" },
-        "name": { "type": "string", "description": "Nama lengkap warga" },
-        "phone": { "type": "string", "description": "Nomor WhatsApp / HP" },
-        "email": { "type": "string", "description": "Alamat email terdaftar" },
-        "role": { "type": "string", "description": "Peran: buyer, seller, atau admin" },
+        "name": { "type": "string", "description": "Nama lengkap warga", "maxLength": 120 },
+        "phone": { "type": "string", "description": "Nomor WhatsApp / HP", "maxLength": 30 },
+        "email": { "type": "string", "description": "Alamat email terdaftar", "maxLength": 100 },
+        "role": { "type": "string", "description": "Peran akun", "enum": ["buyer", "seller", "courier", "admin"] },
         "avatar": { "type": "string", "description": "URL foto profil" },
-        "dusun": { "type": "string", "description": "Alamat Dusun / RT / RW" },
-        "shopName": { "type": "string", "description": "Nama usaha / toko UMKM jika penjual" },
-        "shopDescription": { "type": "string", "description": "Deskripsi toko UMKM" },
-        "shopWhatsapp": { "type": "string", "description": "WhatsApp toko UMKM" },
-        "bankName": { "type": "string", "description": "Nama bank atau e-wallet toko" },
-        "bankAccountNumber": { "type": "string", "description": "Nomor rekening toko" },
-        "bankAccountHolder": { "type": "string", "description": "Nama pemilik rekening" },
-        "verifiedSeller": { "type": "boolean", "description": "Status verifikasi UMKM" },
-        "createdAt": { "type": "string", "description": "Waktu pembuatan akun ISO format" }
-      }
+        "dusun": { "type": "string", "description": "Alamat Dusun / RT / RW", "maxLength": 150 },
+        "address": { "type": "string", "description": "Alamat lengkap pengiriman", "maxLength": 250 },
+        "isActive": { "type": "boolean", "description": "Status keaktifan akun" },
+        "storeId": { "type": "string", "description": "ID lapak terhubung jika peran pedagang" },
+        "shopName": { "type": "string", "description": "Nama lapak UMKM", "maxLength": 120 },
+        "shopDescription": { "type": "string", "description": "Deskripsi lapak UMKM", "maxLength": 500 },
+        "shopWhatsapp": { "type": "string", "description": "WhatsApp toko", "maxLength": 30 },
+        "vehicleInfo": { "type": "string", "description": "Informasi kendaraan kurir", "maxLength": 120 },
+        "adminStatus": { "type": "string", "description": "Status persetujuan akun admin", "enum": ["none", "pending", "approved", "rejected"] },
+        "adminPosition": { "type": "string", "description": "Jabatan perangkat desa/BUMDes", "maxLength": 150 },
+        "adminReason": { "type": "string", "description": "Alasan pengajuan akses admin", "maxLength": 500 },
+        "isSuperAdmin": { "type": "boolean", "description": "Status super admin desa" },
+        "createdAt": { "type": "string", "description": "Waktu pembuatan akun ISO format" },
+        "updatedAt": { "type": "string", "description": "Waktu pembaruan akun ISO format" }
+      },
+      "required": ["id", "name", "phone", "role"]
+    },
+    "Store": {
+      "title": "Store",
+      "description": "Lapak UMKM lokal desa tempat warga menjual produk",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "ID unik lapak toko desa" },
+        "sellerId": { "type": "string", "description": "UID pedagang pemilik lapak" },
+        "name": { "type": "string", "description": "Nama lapak UMKM desa", "maxLength": 120 },
+        "slug": { "type": "string", "description": "Slug URL lapak" },
+        "description": { "type": "string", "description": "Deskripsi profil lapak", "maxLength": 500 },
+        "dusun": { "type": "string", "description": "Dusun letak lapak", "maxLength": 150 },
+        "address": { "type": "string", "description": "Alamat fisik lapak desa", "maxLength": 250 },
+        "whatsapp": { "type": "string", "description": "Nomor kontak WhatsApp lapak", "maxLength": 30 },
+        "logoUrl": { "type": "string", "description": "URL foto logo lapak" },
+        "bannerUrl": { "type": "string", "description": "URL banner lapak" },
+        "isVerified": { "type": "boolean", "description": "Status verifikasi resmi pengurus desa/BUMDes" },
+        "rating": { "type": "number", "description": "Rating rata-rata lapak" },
+        "totalSales": { "type": "number", "description": "Total produk terjual" },
+        "createdAt": { "type": "string", "description": "Waktu pendaftaran lapak" }
+      },
+      "required": ["id", "sellerId", "name", "dusun", "whatsapp"]
+    },
+    "AdminApproval": {
+      "title": "AdminApproval",
+      "description": "Permohonan verifikasi manual pembuatan akun admin desa demi keamanan",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "ID permohonan unik" },
+        "userId": { "type": "string", "description": "ID pengguna pemohon" },
+        "name": { "type": "string", "description": "Nama lengkap pemohon", "maxLength": 120 },
+        "phone": { "type": "string", "description": "Nomor kontak WhatsApp pemohon", "maxLength": 30 },
+        "email": { "type": "string", "description": "Email pemohon", "maxLength": 100 },
+        "dusun": { "type": "string", "description": "Dusun domisili pemohon", "maxLength": 150 },
+        "position": { "type": "string", "description": "Jabatan atau unit tugas di desa/BUMDes", "maxLength": 150 },
+        "reason": { "type": "string", "description": "Alasan permohonan hak akses admin", "maxLength": 500 },
+        "status": { "type": "string", "description": "Status persetujuan manual: pending, approved, rejected", "enum": ["pending", "approved", "rejected"] },
+        "requestedAt": { "type": "string", "description": "Waktu pengajuan permohonan" },
+        "reviewedAt": { "type": "string", "description": "Waktu peninjauan oleh super admin" },
+        "reviewedBy": { "type": "string", "description": "Nama atau ID super admin yang meninjau", "maxLength": 120 },
+        "rejectionReason": { "type": "string", "description": "Catatan alasan jika permohonan ditolak", "maxLength": 500 }
+      },
+      "required": ["id", "userId", "name", "phone", "status", "requestedAt"]
     },
     "Product": {
-      "collection": "products",
-      "fields": {
+      "title": "Product",
+      "description": "Katalog produk barang dan hasil panen warga desa",
+      "type": "object",
+      "properties": {
         "id": { "type": "string", "description": "ID produk unik" },
-        "name": { "type": "string", "description": "Nama produk desa" },
-        "slug": { "type": "string", "description": "Slug SEO friendly" },
+        "storeId": { "type": "string", "description": "ID lapak pemilik produk" },
         "sellerId": { "type": "string", "description": "ID penjual pemilik produk" },
         "sellerName": { "type": "string", "description": "Nama penjual" },
         "sellerDusun": { "type": "string", "description": "Dusun penjual" },
         "sellerWhatsapp": { "type": "string", "description": "Nomor WhatsApp penjual" },
         "categoryId": { "type": "string", "description": "Kategori produk" },
         "categoryName": { "type": "string", "description": "Nama kategori produk" },
+        "name": { "type": "string", "description": "Nama produk desa", "maxLength": 150 },
+        "slug": { "type": "string", "description": "Slug SEO friendly" },
         "price": { "type": "number", "description": "Harga jual" },
         "originalPrice": { "type": "number", "description": "Harga asli sebelum diskon" },
         "unit": { "type": "string", "description": "Satuan penjualan (kg, ikat, porsi)" },
         "stock": { "type": "number", "description": "Jumlah stok tersedia" },
-        "description": { "type": "string", "description": "Deskripsi produk" },
-        "imageUrl": { "type": "string", "description": "URL foto WebP produk" },
+        "description": { "type": "string", "description": "Deskripsi produk", "maxLength": 2000 },
+        "imageUrl": { "type": "string", "description": "URL foto produk" },
         "rating": { "type": "number", "description": "Rating produk (1-5)" },
         "soldCount": { "type": "number", "description": "Jumlah terjual" },
         "isPromo": { "type": "boolean", "description": "Status promo diskon" },
         "promoBadge": { "type": "string", "description": "Label badge promo" },
+        "isActive": { "type": "boolean", "description": "Status tayang produk" },
         "createdAt": { "type": "string", "description": "Waktu pembuatan produk" }
-      }
+      },
+      "required": ["id", "storeId", "sellerId", "name", "price", "stock"]
     },
     "Order": {
-      "collection": "orders",
-      "fields": {
+      "title": "Order",
+      "description": "Transaksi pembelian produk pasar desa yang dipisahkan per lapak",
+      "type": "object",
+      "properties": {
         "id": { "type": "string", "description": "ID pesanan unik" },
+        "orderNumber": { "type": "string", "description": "Nomor invoice pesanan (misal: ORD-001)" },
         "buyerId": { "type": "string", "description": "ID pembeli" },
+        "storeId": { "type": "string", "description": "ID lapak tujuan" },
+        "storeName": { "type": "string", "description": "Nama lapak" },
+        "sellerId": { "type": "string", "description": "ID penjual pemilik lapak" },
+        "sellerName": { "type": "string", "description": "Nama penjual" },
+        "courierId": { "type": "string", "description": "ID kurir yang ditugaskan" },
+        "courierName": { "type": "string", "description": "Nama kurir desa" },
         "buyerName": { "type": "string", "description": "Nama pembeli" },
         "buyerPhone": { "type": "string", "description": "Nomor WhatsApp pembeli" },
         "buyerAddress": { "type": "string", "description": "Alamat tujuan pembeli" },
         "buyerDusun": { "type": "string", "description": "Dusun pembeli" },
-        "sellerId": { "type": "string", "description": "ID penjual" },
-        "sellerName": { "type": "string", "description": "Nama penjual" },
-        "totalAmount": { "type": "number", "description": "Total tagihan pesanan" },
-        "deliveryFee": { "type": "number", "description": "Biaya kurir desa" },
+        "subtotal": { "type": "number", "description": "Subtotal produk lapak" },
+        "ongkir": { "type": "number", "description": "Biaya kurir pengiriman desa" },
+        "total": { "type": "number", "description": "Total pembayaran" },
+        "buyerNote": { "type": "string", "description": "Catatan pembeli ke penjual (e.g., Contoh: sambelnya yang banyak ya 🤣🌶️)", "maxLength": 500 },
+        "status": { "type": "string", "description": "Status: pending, confirmed, preparing, ready, picked_up, delivering, completed, cancelled" },
+        "paymentStatus": { "type": "string", "description": "Status pembayaran: unpaid, pending, paid, failed" },
+        "deliveryStatus": { "type": "string", "description": "Status pengiriman: waiting, assigned, picked_up, delivering, delivered" },
+        "paymentMethod": { "type": "string", "description": "cod, transfer, qris" },
         "deliveryMethod": { "type": "string", "description": "antar_desa atau ambil_toko" },
-        "paymentMethod": { "type": "string", "description": "cod atau transfer" },
-        "paymentProofUrl": { "type": "string", "description": "URL foto bukti transfer" },
-        "status": { "type": "string", "description": "Status: menunggu, diproses, dikirim, selesai, dibatalkan" },
-        "notes": { "type": "string", "description": "Catatan pembeli" },
         "createdAt": { "type": "string", "description": "Waktu order dibuat" }
-      }
+      },
+      "required": ["id", "orderNumber", "buyerId", "storeId", "sellerId", "total", "status"]
+    },
+    "Delivery": {
+      "title": "Delivery",
+      "description": "Tugas pengiriman kurir lokal desa",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "ID tugas pengantaran" },
+        "orderId": { "type": "string", "description": "ID order terkait" },
+        "orderNumber": { "type": "string", "description": "Nomor invoice order" },
+        "courierId": { "type": "string", "description": "ID kurir penerima tugas" },
+        "courierName": { "type": "string", "description": "Nama kurir" },
+        "storeId": { "type": "string", "description": "ID lapak penjemputan" },
+        "storeName": { "type": "string", "description": "Nama lapak" },
+        "buyerName": { "type": "string", "description": "Nama pembeli tujuan" },
+        "buyerPhone": { "type": "string", "description": "Nomor kontak pembeli" },
+        "buyerAddress": { "type": "string", "description": "Alamat tujuan" },
+        "status": { "type": "string", "description": "waiting, assigned, picked_up, delivering, delivered" },
+        "createdAt": { "type": "string", "description": "Waktu penugasan" }
+      },
+      "required": ["id", "orderId", "courierId", "status"]
+    },
+    "CourierApplication": {
+      "title": "CourierApplication",
+      "description": "Pendaftaran warga menjadi kurir pengantar desa yang diverifikasi admin BUMDes",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "ID pendaftaran kurir unik" },
+        "userId": { "type": "string", "description": "ID akun pemohon" },
+        "name": { "type": "string", "description": "Nama lengkap pemohon kurir" },
+        "phone": { "type": "string", "description": "Nomor WhatsApp aktif" },
+        "email": { "type": "string", "description": "Email pemohon" },
+        "dusun": { "type": "string", "description": "Dusun domisili pemohon" },
+        "vehicleType": { "type": "string", "description": "Jenis kendaraan (sepeda motor, bentor, dll)" },
+        "vehicleInfo": { "type": "string", "description": "Keterangan kendaraan dan plat nomor" },
+        "driverLicenseNumber": { "type": "string", "description": "Nomor SIM / KTP pemohon" },
+        "notes": { "type": "string", "description": "Catatan pengalaman" },
+        "status": { "type": "string", "description": "pending, approved, rejected", "enum": ["pending", "approved", "rejected"] },
+        "appliedAt": { "type": "string", "description": "Waktu pendaftaran" },
+        "reviewedAt": { "type": "string", "description": "Waktu verifikasi admin" },
+        "reviewedBy": { "type": "string", "description": "Nama admin yang memverifikasi" },
+        "rejectionReason": { "type": "string", "description": "Alasan penolakan jika ditolak" }
+      },
+      "required": ["id", "userId", "name", "phone", "vehicleInfo", "status", "appliedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Profil akun warga pengguna pasar desa"
+    },
+    "/stores/{storeId}": {
+      "schema": "Store",
+      "description": "Data profil lapak pedagang lokal desa"
+    },
+    "/admin_approvals/{requestId}": {
+      "schema": "AdminApproval",
+      "description": "Daftar permohonan verifikasi manual akun admin desa"
+    },
+    "/courier_applications/{applicationId}": {
+      "schema": "CourierApplication",
+      "description": "Daftar pendaftaran warga menjadi kurir desa menunggu persetujuan admin"
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Katalog produk desa"
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Daftar transaksi pesanan pasar desa terpisah per lapak"
+    },
+    "/deliveries/{deliveryId}": {
+      "schema": "Delivery",
+      "description": "Data tugas pengantaran kurir desa"
     }
   }
 }

@@ -14,6 +14,9 @@ import { CheckoutModal } from './components/CheckoutModal';
 import { VillageNewsModal } from './components/VillageNewsModal';
 import { AuthModal } from './components/AuthModal';
 import { SEOAndPerformanceModal } from './components/SEOAndPerformanceModal';
+import { CreateStoreModal } from './components/CreateStoreModal';
+import { CourierApplicationModal } from './components/CourierApplicationModal';
+import { ProductShareModal } from './components/ProductShareModal';
 
 const MainContent: React.FC = () => {
   const { activeTab } = useApp();
@@ -48,6 +51,9 @@ export default function App() {
         <CheckoutModal />
         <VillageNewsModal />
         <AuthModal />
+        <CreateStoreModal />
+        <CourierApplicationModal />
+        <ProductShareModal />
         <SEOAndPerformanceModal />
 
         {/* Mobile-First Sticky Bottom Navigation */}

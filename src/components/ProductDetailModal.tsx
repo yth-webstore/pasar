@@ -13,6 +13,7 @@ import {
   Plus,
   Minus,
   AlertCircle,
+  Share2,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatRupiah, injectProductJsonLd } from '../utils/seo';
@@ -29,6 +30,7 @@ export const ProductDetailModal: React.FC = () => {
     currentUser,
     setIsCartOpen,
     setIsAuthModalOpen,
+    openShareProduct,
   } = useApp();
 
   const [quantity, setQuantity] = useState(1);
@@ -107,13 +109,23 @@ export const ProductDetailModal: React.FC = () => {
               {selectedProduct.sellerName}
             </span>
           </div>
-          <button
-            id="close-product-detail-btn"
-            onClick={() => setSelectedProduct(null)}
-            className="w-8 h-8 rounded-full bg-neutral-200/80 hover:bg-neutral-300 text-neutral-700 flex items-center justify-center transition"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              id="header-share-product-btn"
+              onClick={() => openShareProduct(selectedProduct)}
+              className="w-8 h-8 rounded-full bg-neutral-100 hover:bg-emerald-100 text-neutral-600 hover:text-emerald-800 flex items-center justify-center transition"
+              title="Bagikan Produk ke Media Sosial"
+            >
+              <Share2 className="w-4 h-4" />
+            </button>
+            <button
+              id="close-product-detail-btn"
+              onClick={() => setSelectedProduct(null)}
+              className="w-8 h-8 rounded-full bg-neutral-200/80 hover:bg-neutral-300 text-neutral-700 flex items-center justify-center transition"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Scrollable Content */}
@@ -206,14 +218,24 @@ export const ProductDetailModal: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  <button
-                    id="wa-detail-btn"
-                    onClick={handleWhatsApp}
-                    className="p-2 text-emerald-700 hover:bg-emerald-100 rounded-xl transition"
-                    title="Chat via WhatsApp"
-                  >
-                    <MessageCircle className="w-5 h-5" />
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      id="wa-detail-btn"
+                      onClick={handleWhatsApp}
+                      className="p-2 text-emerald-700 hover:bg-emerald-100 rounded-xl transition"
+                      title="Chat Penjual via WhatsApp"
+                    >
+                      <MessageCircle className="w-5 h-5" />
+                    </button>
+                    <button
+                      id="share-detail-btn"
+                      onClick={() => openShareProduct(selectedProduct)}
+                      className="p-2 text-neutral-600 hover:text-emerald-700 hover:bg-emerald-100 rounded-xl transition"
+                      title="Bagikan Produk ke Media Sosial"
+                    >
+                      <Share2 className="w-5 h-5" />
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -405,28 +427,40 @@ export const ProductDetailModal: React.FC = () => {
         </div>
 
         {/* Modal Footer CTA */}
-        <div className="p-4 border-t border-neutral-200 bg-white flex items-center justify-between gap-3">
+        <div className="p-3 sm:p-4 border-t border-neutral-200 bg-white flex items-center justify-between gap-2 sm:gap-3">
           <button
             id="chat-wa-modal-btn"
             onClick={handleWhatsApp}
-            className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border border-emerald-600 text-emerald-700 hover:bg-emerald-50 text-xs sm:text-sm font-bold transition"
+            className="flex-1 inline-flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 px-3 sm:px-4 rounded-xl border border-emerald-600 text-emerald-700 hover:bg-emerald-50 text-xs sm:text-sm font-bold transition"
+            title="Chat WhatsApp Penjual"
           >
-            <MessageCircle className="w-4 h-4 text-emerald-600" />
-            <span>Chat WhatsApp</span>
+            <MessageCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="truncate">Chat WhatsApp</span>
+          </button>
+
+          {/* Social Media Share button beside WhatsApp */}
+          <button
+            id="share-product-modal-btn"
+            onClick={() => openShareProduct(selectedProduct)}
+            className="inline-flex items-center justify-center gap-1.5 py-2.5 px-3 sm:px-4 rounded-xl border border-neutral-300 hover:border-emerald-600 text-neutral-700 hover:text-emerald-800 hover:bg-emerald-50 text-xs sm:text-sm font-bold transition shrink-0"
+            title="Bagikan Produk ke Media Sosial"
+          >
+            <Share2 className="w-4 h-4 text-neutral-600" />
+            <span className="hidden xs:inline">Bagikan</span>
           </button>
 
           <button
             id="modal-add-cart-btn"
             onClick={handleAddToCart}
             disabled={selectedProduct.stock <= 0}
-            className={`flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-white text-xs sm:text-sm font-bold shadow-md transition ${
+            className={`flex-1 inline-flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 px-3 sm:px-4 rounded-xl text-white text-xs sm:text-sm font-bold shadow-md transition ${
               selectedProduct.stock > 0
                 ? 'bg-emerald-700 hover:bg-emerald-800 active:scale-98'
                 : 'bg-neutral-300 text-neutral-500 cursor-not-allowed'
             }`}
           >
-            <ShoppingCart className="w-4 h-4" />
-            <span>{selectedProduct.stock > 0 ? 'Beli Sekarang' : 'Stok Habis'}</span>
+            <ShoppingCart className="w-4 h-4 shrink-0" />
+            <span className="truncate">{selectedProduct.stock > 0 ? 'Beli Sekarang' : 'Stok Habis'}</span>
           </button>
         </div>
       </div>

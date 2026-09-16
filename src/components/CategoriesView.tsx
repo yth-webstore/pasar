@@ -192,6 +192,20 @@ export const CategoriesView: React.FC = () => {
             <span>Stok Tersedia Saja</span>
           </button>
 
+          {searchQuery && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-900 font-bold text-xs border border-emerald-300">
+              <Search className="w-3 h-3 text-emerald-700" />
+              <span>Cari: "{searchQuery}"</span>
+              <button
+                onClick={() => setSearchQuery('')}
+                className="ml-1 hover:text-red-600 transition"
+                title="Hapus kata kunci pencarian"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+
           {(filterPromoOnly || filterInStockOnly || searchQuery) && (
             <button
               onClick={() => {

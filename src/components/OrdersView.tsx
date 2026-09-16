@@ -9,16 +9,25 @@ import {
   Eye,
   FileText,
   Search,
+  Star,
+  ThumbsUp,
+  X,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Order, OrderStatus } from '../types';
 import { formatRupiah } from '../utils/seo';
 
 export const OrdersView: React.FC = () => {
-  const { orders, currentUser, updateOrderStatus, setSelectedProduct, products } = useApp();
+  const { orders, currentUser, updateOrderStatus, setSelectedProduct, products, rateCourier } = useApp();
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProofUrl, setSelectedProofUrl] = useState<string | null>(null);
+
+  // State for courier rating modal
+  const [ratingCourierOrder, setRatingCourierOrder] = useState<Order | null>(null);
+  const [courierRatingScore, setCourierRatingScore] = useState<number>(5);
+  const [courierReviewText, setCourierReviewText] = useState<string>('');
+  const [isSubmittingRating, setIsSubmittingRating] = useState<boolean>(false);
 
   // Filter orders related to current user
   const userOrders = orders.filter((o) => {
@@ -35,6 +44,27 @@ export const OrdersView: React.FC = () => {
       o.items.some((it) => it.productName.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesStatus && matchesSearch;
   });
+
+  // Handle courier rating submit
+  const handleCourierRatingSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ratingCourierOrder) return;
+    try {
+      setIsSubmittingRating(true);
+      await rateCourier(
+        ratingCourierOrder.id,
+        ratingCourierOrder.courierId || 'courier-1',
+        courierRatingScore,
+        courierReviewText.trim()
+      );
+      setRatingCourierOrder(null);
+      setCourierReviewText('');
+    } catch (err) {
+      console.error('Failed to rate courier:', err);
+    } finally {
+      setIsSubmittingRating(false);
+    }
+  };
 
   const getStatusBadge = (status: OrderStatus) => {
     switch (status) {
@@ -216,6 +246,70 @@ export const OrdersView: React.FC = () => {
                 </div>
               </div>
 
+              {/* Courier Delivery Card & Rating Section */}
+              {order.deliveryMethod === 'antar_desa' && (
+                <div className="bg-emerald-50/60 border border-emerald-200/80 rounded-2xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                      <Truck className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-neutral-900 flex items-center gap-1.5">
+                        <span>Kurir: {order.courierName || 'Kurir Antar Desa'}</span>
+                        {order.courierPhone && (
+                          <span className="text-[11px] text-neutral-500 font-normal">({order.courierPhone})</span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-emerald-800 font-medium">
+                        Pengantaran resmi se-desa • Ongkir Rp 3.000
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Courier Rating Display or Action */}
+                  <div className="shrink-0">
+                    {order.courierRating ? (
+                      <div className="flex items-center gap-1.5 bg-white border border-amber-300 px-2.5 py-1 rounded-xl text-[11px] shadow-2xs">
+                        <div className="flex items-center text-amber-500">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Star
+                              key={i}
+                              className={`w-3 h-3 ${
+                                i < (order.courierRating || 0)
+                                  ? 'fill-amber-400 text-amber-400'
+                                  : 'text-neutral-300'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <span className="font-bold text-neutral-800">{order.courierRating}/5</span>
+                        {order.courierReview && (
+                          <span className="text-neutral-500 max-w-36 truncate" title={order.courierReview}>
+                            "{order.courierReview}"
+                          </span>
+                        )}
+                      </div>
+                    ) : order.status === 'selesai' && currentUser?.role === 'buyer' ? (
+                      <button
+                        onClick={() => {
+                          setRatingCourierOrder(order);
+                          setCourierRatingScore(5);
+                          setCourierReviewText('');
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-neutral-950 rounded-xl font-bold text-xs shadow-2xs transition"
+                      >
+                        <Star className="w-3.5 h-3.5 fill-neutral-950 text-neutral-950" />
+                        <span>Beri Rating Kurir</span>
+                      </button>
+                    ) : (
+                      <span className="text-[11px] text-neutral-400 italic">
+                        {order.status === 'selesai' ? 'Rating kurir tersimpan' : 'Rating kurir setelah selesai'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Total & Action Footer */}
               <div className="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-neutral-100">
                 <div className="flex items-baseline gap-2">
@@ -256,6 +350,24 @@ export const OrdersView: React.FC = () => {
                     </button>
                   )}
 
+                  {/* Buyer action: Rating Kurir Trigger if selesai and not yet rated */}
+                  {order.status === 'selesai' &&
+                    order.deliveryMethod === 'antar_desa' &&
+                    !order.courierRating &&
+                    currentUser?.role === 'buyer' && (
+                      <button
+                        onClick={() => {
+                          setRatingCourierOrder(order);
+                          setCourierRatingScore(5);
+                          setCourierReviewText('');
+                        }}
+                        className="px-3 py-1.5 text-xs font-bold text-neutral-950 bg-amber-400 hover:bg-amber-500 rounded-xl shadow-2xs transition flex items-center gap-1"
+                      >
+                        <Star className="w-3.5 h-3.5 fill-neutral-950" />
+                        <span>Nilai Kurir</span>
+                      </button>
+                    )}
+
                   {/* Review prompt when finished */}
                   {order.status === 'selesai' && (
                     <button
@@ -263,15 +375,122 @@ export const OrdersView: React.FC = () => {
                         const targetProd = products.find((p) => p.id === order.items[0]?.productId);
                         if (targetProd) setSelectedProduct(targetProd);
                       }}
-                      className="px-3 py-1.5 text-xs font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 rounded-xl transition"
+                      className="px-3 py-1.5 text-xs font-bold text-emerald-900 bg-emerald-100 hover:bg-emerald-200 rounded-xl transition"
                     >
-                      Beri Ulasan
+                      Beri Ulasan Produk
                     </button>
                   )}
                 </div>
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Courier Rating Modal */}
+      {ratingCourierOrder && (
+        <div
+          id="courier-rating-modal-backdrop"
+          className="fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={() => setRatingCourierOrder(null)}
+        >
+          <div
+            id="courier-rating-modal-container"
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl max-w-sm w-full p-5 sm:p-6 shadow-2xl border border-neutral-200 text-center space-y-4 animate-in fade-in zoom-in-95 duration-150"
+          >
+            <div className="w-14 h-14 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center mx-auto shadow-xs border border-amber-200">
+              <Truck className="w-7 h-7" />
+            </div>
+
+            <div>
+              <h3 className="font-extrabold text-base text-neutral-900">
+                Beri Rating Kurir Desa
+              </h3>
+              <p className="text-xs text-neutral-500 mt-1">
+                {ratingCourierOrder.courierName || 'Kurir Antar Desa Sukamaju'} • {ratingCourierOrder.invoiceNumber}
+              </p>
+            </div>
+
+            {/* 5 Star Selection */}
+            <div className="py-2 bg-amber-50/50 rounded-2xl border border-amber-100/80">
+              <div className="flex items-center justify-center gap-1.5">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setCourierRatingScore(star)}
+                    className="p-1 hover:scale-120 transition transform cursor-pointer"
+                  >
+                    <Star
+                      className={`w-7 h-7 ${
+                        star <= courierRatingScore
+                          ? 'fill-amber-400 text-amber-500 drop-shadow-xs'
+                          : 'text-neutral-300'
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
+              <div className="text-xs font-extrabold text-amber-900 mt-1.5">
+                {courierRatingScore === 5
+                  ? '⭐⭐⭐⭐⭐ Sangat Cepat & Memuaskan'
+                  : courierRatingScore === 4
+                  ? '⭐⭐⭐⭐ Pengantaran Baik & Ramah'
+                  : courierRatingScore === 3
+                  ? '⭐⭐⭐ Cukup Baik'
+                  : courierRatingScore === 2
+                  ? '⭐⭐ Kurang Memuaskan'
+                  : '⭐ Perlu Perbaikan'}
+              </div>
+            </div>
+
+            {/* Quick Feedback Tags */}
+            <div className="flex flex-wrap items-center justify-center gap-1.5 text-[11px]">
+              {['Tepat Waktu', 'Barang Aman & Rapi', 'Sangat Ramah', 'Komunikasi Bagus', 'Hafal Alamat'].map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => {
+                    if (courierReviewText.includes(tag)) return;
+                    setCourierReviewText((prev) => (prev ? `${prev}, ${tag}` : tag));
+                  }}
+                  className="px-2.5 py-1 bg-neutral-100 hover:bg-emerald-50 hover:text-emerald-800 text-neutral-700 rounded-lg transition font-medium border border-neutral-200/80"
+                >
+                  + {tag}
+                </button>
+              ))}
+            </div>
+
+            {/* Review Note */}
+            <form onSubmit={handleCourierRatingSubmit} className="space-y-3">
+              <textarea
+                rows={3}
+                value={courierReviewText}
+                onChange={(e) => setCourierReviewText(e.target.value)}
+                placeholder="Tulis ulasan pengantaran kurir (contoh: Kurir tepat waktu, paket beras diantar sampai depan pintu dengan aman)..."
+                className="w-full text-xs p-3 rounded-2xl border border-neutral-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-100 outline-none resize-none"
+              />
+
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setRatingCourierOrder(null)}
+                  className="flex-1 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-xs font-bold rounded-xl transition"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingRating}
+                  className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 text-neutral-950 text-xs font-black rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>{isSubmittingRating ? 'Menyimpan...' : 'Kirim Penilaian'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

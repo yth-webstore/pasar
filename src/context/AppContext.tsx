@@ -12,16 +12,23 @@ import {
   VillageAd,
   VillageSettings,
   Review,
+  AdminApprovalRequest,
+  AdminApprovalStatus,
+  Store,
+  DeliveryStatus,
 } from '../types';
 import {
   INITIAL_USERS,
+  INITIAL_STORES,
   INITIAL_CATEGORIES,
   INITIAL_PRODUCTS,
+  INITIAL_ORDERS,
   INITIAL_BANNERS,
   INITIAL_NEWS,
   INITIAL_ADS,
   INITIAL_REVIEWS,
   INITIAL_SETTINGS,
+  INITIAL_ADMIN_APPROVALS,
 } from '../data/initialData';
 import { updatePageSEO } from '../utils/seo';
 import {
@@ -33,7 +40,23 @@ import {
   fetchUserProfileFromFirestore,
   translateFirebaseError,
   saveUserProfileToFirestore,
+  saveAdminApprovalToFirestore,
+  fetchAdminApprovalsFromFirestore,
+  updateAdminApprovalInFirestore,
+  saveOrderToFirestore,
+  fetchOrdersFromFirestore,
+  saveStoreToFirestore,
+  fetchStoresFromFirestore,
+  createStoreInFirestore,
+  rateCourierInFirestore,
+  saveCourierApplicationToFirestore,
+  fetchCourierApplicationsFromFirestore,
+  updateCourierApplicationInFirestore,
 } from '../lib/firebase';
+import {
+  CourierApplication,
+  CourierApprovalStatus,
+} from '../types';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 
 interface AppContextType {
@@ -43,6 +66,12 @@ interface AppContextType {
   authError: string | null;
   setAuthError: (err: string | null) => void;
   users: User[];
+  stores: Store[];
+  selectedStore: Store | null;
+  selectedStoreId: string | null;
+  activeCouriers: User[];
+  courierApplications: CourierApplication[];
+  pendingCourierCount: number;
   products: Product[];
   categories: Category[];
   banners: Banner[];
@@ -53,7 +82,7 @@ interface AppContextType {
   reviews: Review[];
   settings: VillageSettings;
   favorites: string[];
-  activeTab: 'beranda' | 'kategori' | 'keranjang' | 'pesanan' | 'profil' | 'admin' | 'seller' | 'toko';
+  activeTab: 'beranda' | 'kategori' | 'lapak' | 'keranjang' | 'pesanan' | 'profil' | 'admin' | 'seller' | 'courier' | 'toko';
   selectedCategory: string | null;
   searchQuery: string;
   selectedProduct: Product | null;
@@ -62,10 +91,16 @@ interface AppContextType {
   isCheckoutModalOpen: boolean;
   isCartOpen: boolean;
   isSeoModalOpen: boolean;
+  isCreateStoreModalOpen: boolean;
+  isCourierModalOpen: boolean;
+  sharingProduct: Product | null;
+  isShareModalOpen: boolean;
   dataSaverMode: boolean;
   
   // Setters
-  setActiveTab: (tab: 'beranda' | 'kategori' | 'keranjang' | 'pesanan' | 'profil' | 'admin' | 'seller' | 'toko') => void;
+  setActiveTab: (tab: 'beranda' | 'kategori' | 'lapak' | 'keranjang' | 'pesanan' | 'profil' | 'admin' | 'seller' | 'courier' | 'toko') => void;
+  setSelectedStore: (store: Store | null) => void;
+  setSelectedStoreId: (id: string | null) => void;
   setSelectedCategory: (catId: string | null) => void;
   setSearchQuery: (q: string) => void;
   setSelectedProduct: (p: Product | null) => void;
@@ -74,6 +109,11 @@ interface AppContextType {
   setIsCheckoutModalOpen: (open: boolean) => void;
   setIsCartOpen: (open: boolean) => void;
   setIsSeoModalOpen: (open: boolean) => void;
+  setIsCreateStoreModalOpen: (open: boolean) => void;
+  setIsCourierModalOpen: (open: boolean) => void;
+  setSharingProduct: (p: Product | null) => void;
+  setIsShareModalOpen: (open: boolean) => void;
+  openShareProduct: (p: Product) => void;
   setDataSaverMode: (val: boolean) => void;
 
   // Actions
@@ -84,10 +124,29 @@ interface AppContextType {
   loginWithGoogle: () => Promise<boolean>;
   logout: () => Promise<void>;
 
+  // Courier Application & Admin Flow
+  applyCourier: (data: {
+    vehicleType: string;
+    vehicleInfo: string;
+    driverLicenseNumber?: string;
+    notes?: string;
+  }) => Promise<void>;
+  approveCourierApplication: (applicationId: string) => Promise<void>;
+  rejectCourierApplication: (applicationId: string, reason: string) => Promise<void>;
+
+  // Admin Manual Approval Flow
+  adminApprovals: AdminApprovalRequest[];
+  pendingAdminCount: number;
+  approveAdminRequest: (requestId: string) => Promise<void>;
+  rejectAdminRequest: (requestId: string, reason: string) => Promise<void>;
+  revokeAdminAccess: (userId: string) => Promise<void>;
+  refreshAdminStatus: () => Promise<void>;
+
   // Cart
   addToCart: (product: Product, quantity?: number, notes?: string) => void;
   removeFromCart: (productId: string) => void;
   updateCartQuantity: (productId: string, qty: number) => void;
+  updateCartItemNote: (productId: string, note: string) => void;
   clearCart: () => void;
   getCartTotal: () => { subtotal: number; count: number };
 
@@ -95,17 +154,38 @@ interface AppContextType {
   toggleFavorite: (productId: string) => void;
   isFavorite: (productId: string) => boolean;
 
+  // Stores
+  updateStore: (store: Store) => void;
+  verifyStore: (storeId: string, isVerified: boolean) => void;
+  createStore: (storeData: {
+    name: string;
+    description: string;
+    dusun: string;
+    address: string;
+    whatsapp: string;
+    logoUrl?: string;
+    bannerUrl?: string;
+    bankName?: string;
+    bankAccountNumber?: string;
+    bankAccountHolder?: string;
+  }) => Promise<Store>;
+  rateCourier: (orderId: string, courierId: string, rating: number, review: string) => Promise<void>;
+
   // Orders
   createOrder: (orderData: {
     buyerAddress: string;
     buyerDusun: string;
     buyerPhone: string;
+    buyerName?: string;
     deliveryMethod: 'antar_desa' | 'ambil_toko';
-    paymentMethod: 'cod' | 'transfer';
+    paymentMethod: 'cod' | 'transfer' | 'qris';
     paymentProofUrl?: string;
+    buyerNote?: string;
     notes?: string;
   }) => Order[];
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
+  assignCourierToOrder: (orderId: string, courierId: string, courierName: string) => void;
+  updateDeliveryStatus: (orderId: string, deliveryStatus: DeliveryStatus, orderStatus?: OrderStatus) => void;
 
   // Products & Categories
   addProduct: (product: Omit<Product, 'id' | 'createdAt'>) => Product;
@@ -165,6 +245,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
+  const [stores, setStores] = useState<Store[]>(() => getStorage('stores', INITIAL_STORES));
+  const [selectedStore, setSelectedStore] = useState<Store | null>(null);
+  const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>(() => getStorage('products', INITIAL_PRODUCTS));
   const [categories, setCategories] = useState<Category[]>(() => getStorage('categories', INITIAL_CATEGORIES));
   const [banners, setBanners] = useState<Banner[]>(() => getStorage('banners', INITIAL_BANNERS));
@@ -172,13 +255,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [ads, setAds] = useState<VillageAd[]>(() => getStorage('ads', INITIAL_ADS));
   const [reviews, setReviews] = useState<Review[]>(() => getStorage('reviews', INITIAL_REVIEWS));
   const [settings, setSettings] = useState<VillageSettings>(() => getStorage('settings', INITIAL_SETTINGS));
-  const [orders, setOrders] = useState<Order[]>(() => getStorage('orders', []));
+  const [orders, setOrders] = useState<Order[]>(() => getStorage('orders', INITIAL_ORDERS));
   const [cart, setCart] = useState<CartItem[]>(() => getStorage('cart', []));
   const [favorites, setFavorites] = useState<string[]>(() => getStorage('favorites', []));
   const [dataSaverMode, setDataSaverMode] = useState<boolean>(() => getStorage('dataSaverMode', false));
+  const [adminApprovals, setAdminApprovals] = useState<AdminApprovalRequest[]>(() =>
+    getStorage('adminApprovals', INITIAL_ADMIN_APPROVALS)
+  );
+  const [courierApplications, setCourierApplications] = useState<CourierApplication[]>(() =>
+    getStorage('courierApplications', [
+      {
+        id: 'courier-app-1',
+        userId: 'user-courier-1',
+        name: 'Kang Ujang Pengantar Desa',
+        phone: '081234567893',
+        dusun: 'Dusun Sukamaju RW 03',
+        vehicleType: 'Sepeda Motor',
+        vehicleInfo: 'Honda Beat Merah (B 4567 DES)',
+        driverLicenseNumber: 'SIM C Aktif',
+        notes: 'Berpengalaman mengantar belanja hasil tani dan kebutuhan warga antar dusun.',
+        status: 'approved',
+        appliedAt: '2026-03-01T08:00:00.000Z',
+        reviewedAt: '2026-03-01T09:00:00.000Z',
+        reviewedBy: 'Admin BUMDes Sukamaju',
+      },
+    ])
+  );
 
   // Navigation & Modals
-  const [activeTab, setActiveTab] = useState<'beranda' | 'kategori' | 'keranjang' | 'pesanan' | 'profil' | 'admin' | 'seller' | 'toko'>('beranda');
+  const [activeTab, setActiveTab] = useState<'beranda' | 'kategori' | 'lapak' | 'keranjang' | 'pesanan' | 'profil' | 'admin' | 'seller' | 'courier' | 'toko'>('beranda');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -188,9 +293,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState<boolean>(false);
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
   const [isSeoModalOpen, setIsSeoModalOpen] = useState<boolean>(false);
+  const [isCreateStoreModalOpen, setIsCreateStoreModalOpen] = useState<boolean>(false);
+  const [isCourierModalOpen, setIsCourierModalOpen] = useState<boolean>(false);
+  const [sharingProduct, setSharingProduct] = useState<Product | null>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState<boolean>(false);
+
+  const openShareProduct = (p: Product) => {
+    setSharingProduct(p);
+    setIsShareModalOpen(true);
+  };
+
+  const activeCouriers = users.filter((u) => u.role === 'courier');
 
   // Sync state to LocalStorage
   useEffect(() => setStorage('users', users), [users]);
+  useEffect(() => setStorage('stores', stores), [stores]);
   useEffect(() => setStorage('currentUser', currentUser), [currentUser]);
   useEffect(() => setStorage('products', products), [products]);
   useEffect(() => setStorage('categories', categories), [categories]);
@@ -203,6 +320,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => setStorage('favorites', favorites), [favorites]);
   useEffect(() => setStorage('settings', settings), [settings]);
   useEffect(() => setStorage('dataSaverMode', dataSaverMode), [dataSaverMode]);
+  useEffect(() => setStorage('adminApprovals', adminApprovals), [adminApprovals]);
+  useEffect(() => setStorage('courierApplications', courierApplications), [courierApplications]);
+
+  // Load latest admin approvals, courier applications, stores, and orders from Firestore
+  useEffect(() => {
+    const syncData = async () => {
+      try {
+        const list = await fetchAdminApprovalsFromFirestore();
+        if (list && list.length > 0) {
+          setAdminApprovals(list);
+        }
+      } catch (err) {
+        console.warn('Gagal sinkronisasi permohonan admin Firestore:', err);
+      }
+      try {
+        const courierList = await fetchCourierApplicationsFromFirestore();
+        if (courierList && courierList.length > 0) {
+          setCourierApplications(courierList);
+        }
+      } catch (err) {
+        console.warn('Gagal sinkronisasi pendaftaran kurir Firestore:', err);
+      }
+      try {
+        const firestoreStores = await fetchStoresFromFirestore();
+        if (firestoreStores && firestoreStores.length > 0) {
+          setStores(firestoreStores);
+        }
+      } catch (err) {
+        console.warn('Gagal sinkronisasi data lapak Firestore:', err);
+      }
+      try {
+        const firestoreOrders = await fetchOrdersFromFirestore();
+        if (firestoreOrders && firestoreOrders.length > 0) {
+          setOrders(firestoreOrders);
+        }
+      } catch (err) {
+        console.warn('Gagal sinkronisasi data pesanan Firestore:', err);
+      }
+    };
+    syncData();
+  }, []);
+
+  const pendingAdminCount = adminApprovals.filter((a) => a.status === 'pending').length;
+  const pendingCourierCount = courierApplications.filter((c) => c.status === 'pending').length;
 
   // Sync Firebase Auth state changes
   useEffect(() => {
@@ -299,33 +460,59 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       if (password && password.trim().length >= 6) {
         // Authenticate with live Firebase Auth and fetch Firestore doc
-        const user = await firebaseLoginUser({ emailOrPhone, password });
-        setCurrentUser(user);
-        setUsers((prev) => {
-          const idx = prev.findIndex((u) => u.id === user.id);
-          if (idx >= 0) {
-            const copy = [...prev];
-            copy[idx] = user;
-            return copy;
+        try {
+          const user = await firebaseLoginUser({ emailOrPhone, password });
+          setCurrentUser(user);
+          setUsers((prev) => {
+            const idx = prev.findIndex((u) => u.id === user.id);
+            if (idx >= 0) {
+              const copy = [...prev];
+              copy[idx] = user;
+              return copy;
+            }
+            return [...prev, user];
+          });
+          if (user.role === 'admin') setActiveTab('admin');
+          else if (user.role === 'seller') setActiveTab('seller');
+          setIsAuthModalOpen(false);
+          return true;
+        } catch (fbErr: any) {
+          if (fbErr?.code === 'auth/operation-not-allowed') {
+            // If Email/Password is not enabled in Firebase Console yet,
+            // fall back to authenticating with local registered user list or Firestore
+            const cleanPhone = emailOrPhone.replace(/[^0-9]/g, '');
+            const matched = users.find(
+              (u) =>
+                (u.phone && u.phone.includes(cleanPhone)) ||
+                (u.email && u.email.toLowerCase() === emailOrPhone.toLowerCase()) ||
+                u.role === roleHint
+            );
+            if (matched) {
+              setCurrentUser(matched);
+              if (matched.role === 'admin') setActiveTab('admin');
+              else if (matched.role === 'seller') setActiveTab('seller');
+              setIsAuthModalOpen(false);
+              return true;
+            }
           }
-          return [...prev, user];
-        });
-        setIsAuthModalOpen(false);
-        return true;
+          throw fbErr;
+        }
       } else {
         // Instant role / demo switcher fallback
         const cleanPhone = emailOrPhone.replace(/[^0-9]/g, '');
         const matched = users.find((u) => u.phone.includes(cleanPhone) || u.role === roleHint);
         if (matched) {
           setCurrentUser(matched);
+          if (matched.role === 'admin') setActiveTab('admin');
+          else if (matched.role === 'seller') setActiveTab('seller');
           setIsAuthModalOpen(false);
           return true;
         }
-        setAuthError('Masukkan kata sandi minimal 6 karakter untuk masuk dengan Firebase.');
+        setAuthError('Masukkan kata sandi minimal 6 karakter untuk masuk akun.');
         return false;
       }
     } catch (err: any) {
-      console.error('Firebase Login Error:', err);
+      console.error('Login Error:', err);
       setAuthError(translateFirebaseError(err));
       return false;
     } finally {
@@ -342,32 +529,383 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const passwordToUse = userData.password || 'pasardesa123';
       const emailOrPhone = userData.email || userData.emailOrPhone || userData.phone || '08123456789';
 
-      // Create user in Firebase Auth and record profile in Firestore
-      const newUser = await firebaseRegisterUser({
-        emailOrPhone,
-        password: passwordToUse,
-        name: userData.name || 'Warga Desa',
-        phone: userData.phone || '08123456789',
-        role: userData.role || 'buyer',
-        dusun: userData.dusun || 'Dusun Krajan',
-        shopName: userData.shopName,
-        shopDescription: userData.shopDescription,
-        bankName: userData.bankName,
-        bankAccountNumber: userData.bankAccountNumber,
-        bankAccountHolder: userData.bankAccountHolder,
-      });
+      try {
+        // Create user in Firebase Auth and record profile in Firestore
+        const { user: newUser, approvalRequest } = await firebaseRegisterUser({
+          emailOrPhone,
+          password: passwordToUse,
+          name: userData.name || 'Warga Desa',
+          phone: userData.phone || '08123456789',
+          role: userData.role || 'buyer',
+          dusun: userData.dusun || 'Dusun Krajan',
+          shopName: userData.shopName,
+          shopDescription: userData.shopDescription,
+          bankName: userData.bankName,
+          bankAccountNumber: userData.bankAccountNumber,
+          bankAccountHolder: userData.bankAccountHolder,
+          adminPosition: userData.adminPosition,
+          adminReason: userData.adminReason,
+        });
 
-      setUsers((prev) => [...prev, newUser]);
-      setCurrentUser(newUser);
-      setIsAuthModalOpen(false);
-      return newUser;
+        setUsers((prev) => [...prev, newUser]);
+        if (approvalRequest) {
+          setAdminApprovals((prev) => [approvalRequest, ...prev.filter((a) => a.id !== approvalRequest.id)]);
+        }
+        setCurrentUser(newUser);
+        if (newUser.role === 'admin') setActiveTab('admin');
+        else if (newUser.role === 'seller') setActiveTab('seller');
+        setIsAuthModalOpen(false);
+        return newUser;
+      } catch (fbErr: any) {
+        if (fbErr?.code === 'auth/operation-not-allowed') {
+          // Graceful fallback: If Firebase Auth Email/Password isn't enabled yet in console,
+          // save the account directly to Cloud Firestore and local storage so the user is not blocked!
+          const generatedId = `user-${Date.now()}`;
+          const isDefaultSuperAdmin =
+            userData.email?.toLowerCase() === 'yth.abdurrohman@gmail.com' ||
+            userData.email?.toLowerCase() === 'bumdes@sukamaju.desa.id';
+
+          const adminStatus: AdminApprovalStatus =
+            userData.role === 'admin'
+              ? isDefaultSuperAdmin
+                ? 'approved'
+                : 'pending'
+              : 'none';
+
+          const fallbackUser: User = {
+            id: generatedId,
+            name: userData.name || 'Warga Desa',
+            phone: userData.phone || '08123456789',
+            email: userData.email,
+            role: userData.role || 'buyer',
+            dusun: userData.dusun || 'Dusun Krajan',
+            avatar:
+              userData.role === 'admin'
+                ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=250&q=80'
+                : userData.role === 'seller'
+                ? 'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=250&q=80'
+                : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=250&q=80',
+            shopName: userData.shopName,
+            shopDescription: userData.shopDescription,
+            shopWhatsapp: userData.phone,
+            bankName: userData.bankName,
+            bankAccountNumber: userData.bankAccountNumber,
+            bankAccountHolder: userData.bankAccountHolder,
+            verifiedSeller: userData.role === 'seller',
+            adminStatus,
+            adminPosition: userData.adminPosition,
+            adminReason: userData.adminReason,
+            adminRequestedAt: userData.role === 'admin' ? new Date().toISOString() : undefined,
+            isSuperAdmin: isDefaultSuperAdmin,
+            createdAt: new Date().toISOString(),
+          };
+
+          await saveUserProfileToFirestore(fallbackUser);
+
+          if (userData.role === 'admin' && adminStatus === 'pending') {
+            const req: AdminApprovalRequest = {
+              id: `req-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+              userId: fallbackUser.id,
+              name: fallbackUser.name,
+              phone: fallbackUser.phone,
+              email: fallbackUser.email,
+              dusun: fallbackUser.dusun,
+              position: userData.adminPosition || 'Pengurus Desa / BUMDes',
+              reason: userData.adminReason || 'Mengelola operasional pasar desa dan katalog UMKM warga.',
+              status: 'pending',
+              requestedAt: new Date().toISOString(),
+            };
+            await saveAdminApprovalToFirestore(req);
+            setAdminApprovals((prev) => [req, ...prev.filter((a) => a.id !== req.id)]);
+          }
+
+          setUsers((prev) => [...prev, fallbackUser]);
+          setCurrentUser(fallbackUser);
+          if (fallbackUser.role === 'admin') setActiveTab('admin');
+          else if (fallbackUser.role === 'seller') setActiveTab('seller');
+          setIsAuthModalOpen(false);
+          return fallbackUser;
+        }
+        throw fbErr;
+      }
     } catch (err: any) {
-      console.error('Firebase Register Error:', err);
+      console.error('Register Error:', err);
       setAuthError(translateFirebaseError(err));
       return null;
     } finally {
       setIsAuthLoading(false);
     }
+  };
+
+  // Admin Manual Approval Actions
+  const approveAdminRequest = async (requestId: string) => {
+    const req = adminApprovals.find((a) => a.id === requestId);
+    if (!req) return;
+    const reviewer = currentUser?.name || 'Administrator Utama Desa';
+    await updateAdminApprovalInFirestore(requestId, req.userId, 'approved', reviewer);
+
+    setAdminApprovals((prev) =>
+      prev.map((a) =>
+        a.id === requestId
+          ? {
+              ...a,
+              status: 'approved',
+              reviewedAt: new Date().toISOString(),
+              reviewedBy: reviewer,
+            }
+          : a
+      )
+    );
+
+    setUsers((prev) =>
+      prev.map((u) =>
+        u.id === req.userId
+          ? {
+              ...u,
+              adminStatus: 'approved',
+              adminApprovedAt: new Date().toISOString(),
+              adminApprovedBy: reviewer,
+            }
+          : u
+      )
+    );
+
+    if (currentUser?.id === req.userId) {
+      setCurrentUser((prev) =>
+        prev
+          ? {
+              ...prev,
+              adminStatus: 'approved',
+              adminApprovedAt: new Date().toISOString(),
+              adminApprovedBy: reviewer,
+            }
+          : null
+      );
+    }
+  };
+
+  const rejectAdminRequest = async (requestId: string, reason: string) => {
+    const req = adminApprovals.find((a) => a.id === requestId);
+    if (!req) return;
+    const reviewer = currentUser?.name || 'Administrator Utama Desa';
+    await updateAdminApprovalInFirestore(requestId, req.userId, 'rejected', reviewer, reason);
+
+    setAdminApprovals((prev) =>
+      prev.map((a) =>
+        a.id === requestId
+          ? {
+              ...a,
+              status: 'rejected',
+              reviewedAt: new Date().toISOString(),
+              reviewedBy: reviewer,
+              rejectionReason: reason,
+            }
+          : a
+      )
+    );
+
+    setUsers((prev) =>
+      prev.map((u) =>
+        u.id === req.userId
+          ? {
+              ...u,
+              adminStatus: 'rejected',
+              adminRejectionReason: reason,
+            }
+          : u
+      )
+    );
+
+    if (currentUser?.id === req.userId) {
+      setCurrentUser((prev) =>
+        prev
+          ? {
+              ...prev,
+              adminStatus: 'rejected',
+              adminRejectionReason: reason,
+            }
+          : null
+      );
+    }
+  };
+
+  const revokeAdminAccess = async (userId: string) => {
+    const user = users.find((u) => u.id === userId);
+    if (!user) return;
+    const reason = 'Hak akses admin dicabut oleh Administrator Utama Desa.';
+    const updatedUser: User = {
+      ...user,
+      adminStatus: 'rejected',
+      adminRejectionReason: reason,
+    };
+    await saveUserProfileToFirestore(updatedUser);
+    setUsers((prev) => prev.map((u) => (u.id === userId ? updatedUser : u)));
+    if (currentUser?.id === userId) {
+      setCurrentUser(updatedUser);
+    }
+  };
+
+  const refreshAdminStatus = async () => {
+    if (!currentUser) return;
+    const latest = await fetchUserProfileFromFirestore(currentUser.id);
+    if (latest) {
+      setCurrentUser(latest);
+      setUsers((prev) => prev.map((u) => (u.id === latest.id ? latest : u)));
+    }
+    const approvals = await fetchAdminApprovalsFromFirestore();
+    if (approvals.length > 0) {
+      setAdminApprovals(approvals);
+    }
+    const couriers = await fetchCourierApplicationsFromFirestore();
+    if (couriers.length > 0) {
+      setCourierApplications(couriers);
+    }
+  };
+
+  // Courier Application Actions (Pengguna mendaftar kurir, disetujui/ditentukan admin)
+  const applyCourier = async (data: {
+    vehicleType: string;
+    vehicleInfo: string;
+    driverLicenseNumber?: string;
+    notes?: string;
+  }) => {
+    if (!currentUser) throw new Error('Silakan masuk terlebih dahulu untuk mendaftar sebagai kurir.');
+    const now = new Date().toISOString();
+    const newApp: CourierApplication = {
+      id: `courier-app-${Date.now()}`,
+      userId: currentUser.id,
+      name: currentUser.name,
+      phone: currentUser.phone,
+      email: currentUser.email,
+      dusun: currentUser.dusun,
+      vehicleType: data.vehicleType,
+      vehicleInfo: data.vehicleInfo,
+      driverLicenseNumber: data.driverLicenseNumber,
+      notes: data.notes,
+      status: 'pending',
+      appliedAt: now,
+    };
+
+    setCourierApplications((prev) => [newApp, ...prev.filter((c) => c.id !== newApp.id)]);
+
+    const updatedUser: User = {
+      ...currentUser,
+      courierApprovalStatus: 'pending',
+      courierAppliedAt: now,
+      vehicleInfo: data.vehicleInfo,
+      vehicleType: data.vehicleType,
+    };
+    setCurrentUser(updatedUser);
+    setUsers((prev) => prev.map((u) => (u.id === currentUser.id ? updatedUser : u)));
+
+    await saveCourierApplicationToFirestore(newApp);
+  };
+
+  const approveCourierApplication = async (applicationId: string) => {
+    const targetApp = courierApplications.find((a) => a.id === applicationId);
+    if (!targetApp) return;
+
+    const reviewer = currentUser?.name || 'Admin BUMDes Sukamaju';
+    const now = new Date().toISOString();
+
+    setCourierApplications((prev) =>
+      prev.map((a) =>
+        a.id === applicationId
+          ? { ...a, status: 'approved', reviewedAt: now, reviewedBy: reviewer }
+          : a
+      )
+    );
+
+    setUsers((prev) =>
+      prev.map((u) => {
+        if (u.id === targetApp.userId) {
+          return {
+            ...u,
+            role: 'courier',
+            courierStatus: 'ready',
+            courierApprovalStatus: 'approved',
+            courierApprovedAt: now,
+            vehicleInfo: targetApp.vehicleInfo,
+            vehicleType: targetApp.vehicleType,
+          };
+        }
+        return u;
+      })
+    );
+
+    if (currentUser?.id === targetApp.userId) {
+      setCurrentUser((prev) =>
+        prev
+          ? {
+              ...prev,
+              role: 'courier',
+              courierStatus: 'ready',
+              courierApprovalStatus: 'approved',
+              courierApprovedAt: now,
+              vehicleInfo: targetApp.vehicleInfo,
+              vehicleType: targetApp.vehicleType,
+            }
+          : null
+      );
+    }
+
+    await updateCourierApplicationInFirestore(
+      applicationId,
+      targetApp.userId,
+      'approved',
+      reviewer,
+      targetApp.vehicleInfo
+    );
+  };
+
+  const rejectCourierApplication = async (applicationId: string, reason: string) => {
+    const targetApp = courierApplications.find((a) => a.id === applicationId);
+    if (!targetApp) return;
+
+    const reviewer = currentUser?.name || 'Admin BUMDes Sukamaju';
+    const now = new Date().toISOString();
+
+    setCourierApplications((prev) =>
+      prev.map((a) =>
+        a.id === applicationId
+          ? { ...a, status: 'rejected', reviewedAt: now, reviewedBy: reviewer, rejectionReason: reason }
+          : a
+      )
+    );
+
+    setUsers((prev) =>
+      prev.map((u) => {
+        if (u.id === targetApp.userId) {
+          return {
+            ...u,
+            courierApprovalStatus: 'rejected',
+            courierRejectionReason: reason,
+          };
+        }
+        return u;
+      })
+    );
+
+    if (currentUser?.id === targetApp.userId) {
+      setCurrentUser((prev) =>
+        prev
+          ? {
+              ...prev,
+              courierApprovalStatus: 'rejected',
+              courierRejectionReason: reason,
+            }
+          : null
+      );
+    }
+
+    await updateCourierApplicationInFirestore(
+      applicationId,
+      targetApp.userId,
+      'rejected',
+      reviewer,
+      undefined,
+      reason
+    );
   };
 
   const loginWithGoogle = async (): Promise<boolean> => {
@@ -440,6 +978,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+  const updateCartItemNote = (productId: string, note: string) => {
+    setCart((prev) =>
+      prev.map((item) =>
+        item.product.id === productId
+          ? { ...item, notes: note, catatanProduk: note }
+          : item
+      )
+    );
+  };
+
   const clearCart = () => setCart([]);
 
   const getCartTotal = () => {
@@ -457,53 +1005,89 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const isFavorite = (productId: string) => favorites.includes(productId);
 
-  // Orders creation grouped by seller
+  // Store Management
+  const updateStore = (updatedStore: Store) => {
+    setStores((prev) =>
+      prev.map((s) => (s.id === updatedStore.id ? updatedStore : s))
+    );
+    if (selectedStore?.id === updatedStore.id) {
+      setSelectedStore(updatedStore);
+    }
+    saveStoreToFirestore(updatedStore);
+  };
+
+  const verifyStore = (storeId: string, isVerified: boolean) => {
+    setStores((prev) =>
+      prev.map((s) => {
+        if (s.id === storeId) {
+          const updated = { ...s, isVerified };
+          saveStoreToFirestore(updated);
+          return updated;
+        }
+        return s;
+      })
+    );
+  };
+
+  // Orders creation grouped strictly by Lapak (Store)
   const createOrder = (orderData: {
     buyerAddress: string;
     buyerDusun: string;
     buyerPhone: string;
+    buyerName?: string;
     deliveryMethod: 'antar_desa' | 'ambil_toko';
-    paymentMethod: 'cod' | 'transfer';
+    paymentMethod: 'cod' | 'transfer' | 'qris';
     paymentProofUrl?: string;
+    buyerNote?: string;
     notes?: string;
   }): Order[] => {
     if (cart.length === 0) return [];
 
-    // Group cart items by seller
-    const groups: { [sellerId: string]: CartItem[] } = {};
+    // Group cart items by storeId (fallback to sellerId)
+    const groups: { [storeKey: string]: CartItem[] } = {};
     cart.forEach((item) => {
-      const sId = item.product.sellerId;
-      if (!groups[sId]) groups[sId] = [];
-      groups[sId].push(item);
+      const storeKey = item.product.storeId || item.product.sellerId;
+      if (!groups[storeKey]) groups[storeKey] = [];
+      groups[storeKey].push(item);
     });
 
     const newOrders: Order[] = [];
     const now = new Date();
-    const dateStr = now.toLocaleDateString('id-ID', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    const dateStr = now.toISOString();
 
-    Object.keys(groups).forEach((sellerId) => {
-      const items = groups[sellerId];
-      const seller = items[0].product.sellerName;
+    const groupKeys = Object.keys(groups);
+    groupKeys.forEach((storeKey, index) => {
+      const items = groups[storeKey];
+      const firstProd = items[0].product;
+      const matchedStore = stores.find(
+        (s) => s.id === firstProd.storeId || s.id === storeKey || s.sellerId === firstProd.sellerId
+      );
+
+      const storeId = matchedStore?.id || firstProd.storeId || `store-${storeKey}`;
+      const storeName = matchedStore?.name || firstProd.sellerName;
+      const sellerId = matchedStore?.sellerId || firstProd.sellerId;
+      const sellerName = matchedStore?.name || firstProd.sellerName;
+
       const subtotal = items.reduce((acc, it) => acc + it.product.price * it.quantity, 0);
       const deliveryFee = orderData.deliveryMethod === 'antar_desa' ? settings.deliveryFeeStandard : 0;
       const total = subtotal + deliveryFee;
 
-      const orderItem = {
-        id: `ord-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-        invoiceNumber: `INV/DESA/${now.getFullYear()}/${Math.floor(100000 + Math.random() * 900000)}`,
+      const orderNumber = `ORD-${Date.now().toString().slice(-4)}${index + 1}`;
+      const invoiceNumber = `INV/DESA/${now.getFullYear()}/${Math.floor(100000 + Math.random() * 900000)}`;
+
+      const orderItem: Order = {
+        id: `ord-${Date.now()}-${index}-${Math.floor(Math.random() * 1000)}`,
+        orderNumber,
+        invoiceNumber,
         buyerId: currentUser?.id || 'guest-warga',
-        buyerName: currentUser?.name || 'Warga Desa Sukamaju',
+        buyerName: orderData.buyerName || currentUser?.name || 'Warga Desa Sukamaju',
         buyerPhone: orderData.buyerPhone || currentUser?.phone || '',
         buyerAddress: orderData.buyerAddress,
         buyerDusun: orderData.buyerDusun,
-        sellerId: sellerId,
-        sellerName: seller,
+        storeId,
+        storeName,
+        sellerId,
+        sellerName,
         items: items.map((it) => ({
           productId: it.product.id,
           productName: it.product.name,
@@ -513,20 +1097,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           imageUrl: it.product.imageUrl,
           sellerId: it.product.sellerId,
           sellerName: it.product.sellerName,
+          catatanProduk: it.catatanProduk || it.notes || '',
         })),
         subtotal,
+        ongkir: deliveryFee,
         deliveryFee,
         total,
+        buyerNote: orderData.buyerNote || orderData.notes || '',
+        notes: orderData.buyerNote || orderData.notes || '',
         paymentMethod: orderData.paymentMethod,
+        paymentStatus: orderData.paymentMethod === 'cod' ? 'pending' : 'paid',
         paymentProofUrl: orderData.paymentProofUrl,
-        status: 'menunggu' as OrderStatus,
+        status: 'menunggu',
+        deliveryStatus: 'waiting',
         deliveryMethod: orderData.deliveryMethod,
-        notes: orderData.notes,
         createdAt: dateStr,
         updatedAt: dateStr,
       };
 
       newOrders.push(orderItem);
+
+      // Save order to Firestore
+      saveOrderToFirestore(orderItem);
 
       // Decrement product stock and increment sold count
       items.forEach((ci) => {
@@ -551,21 +1143,65 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateOrderStatus = (orderId: string, status: OrderStatus) => {
     setOrders((prev) =>
-      prev.map((ord) =>
-        ord.id === orderId
-          ? {
-              ...ord,
-              status,
-              updatedAt: new Date().toLocaleDateString('id-ID', {
-                day: 'numeric',
-                month: 'short',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-              }),
+      prev.map((ord) => {
+        if (ord.id === orderId) {
+          const updated: Order = {
+            ...ord,
+            status,
+            updatedAt: new Date().toISOString(),
+          };
+          saveOrderToFirestore(updated);
+          return updated;
+        }
+        return ord;
+      })
+    );
+  };
+
+  const assignCourierToOrder = (orderId: string, courierId: string, courierName: string) => {
+    setOrders((prev) =>
+      prev.map((ord) => {
+        if (ord.id === orderId) {
+          const updated: Order = {
+            ...ord,
+            courierId,
+            courierName,
+            deliveryStatus: 'assigned',
+            status: ord.status === 'menunggu' ? 'diproses' : ord.status,
+            updatedAt: new Date().toISOString(),
+          };
+          saveOrderToFirestore(updated);
+          return updated;
+        }
+        return ord;
+      })
+    );
+  };
+
+  const updateDeliveryStatus = (orderId: string, deliveryStatus: DeliveryStatus, orderStatus?: OrderStatus) => {
+    setOrders((prev) =>
+      prev.map((ord) => {
+        if (ord.id === orderId) {
+          let nextOrderStatus = orderStatus || ord.status;
+          if (!orderStatus) {
+            if (deliveryStatus === 'picked_up' || deliveryStatus === 'delivering') {
+              nextOrderStatus = 'dikirim';
+            } else if (deliveryStatus === 'delivered') {
+              nextOrderStatus = 'selesai';
             }
-          : ord
-      )
+          }
+          const updated: Order = {
+            ...ord,
+            deliveryStatus,
+            status: nextOrderStatus,
+            paymentStatus: deliveryStatus === 'delivered' ? 'paid' : ord.paymentStatus,
+            updatedAt: new Date().toISOString(),
+          };
+          saveOrderToFirestore(updated);
+          return updated;
+        }
+        return ord;
+      })
     );
   };
 
@@ -661,6 +1297,91 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateSettings = (newSettings: VillageSettings) => setSettings(newSettings);
 
+  // Universal Store Creation: Any user can open their own lapak ("setiap pengguna dapat membuat lapak")
+  const createStore = async (storeData: {
+    name: string;
+    description: string;
+    dusun: string;
+    address: string;
+    whatsapp: string;
+    logoUrl?: string;
+    bannerUrl?: string;
+    bankName?: string;
+    bankAccountNumber?: string;
+    bankAccountHolder?: string;
+  }): Promise<Store> => {
+    if (!currentUser) throw new Error('Silakan masuk terlebih dahulu untuk membuka lapak.');
+
+    const newStore = await createStoreInFirestore({
+      sellerId: currentUser.id,
+      sellerName: currentUser.name,
+      ...storeData,
+    });
+
+    // Update stores list
+    setStores((prev) => [newStore, ...prev.filter((s) => s.id !== newStore.id)]);
+
+    // Upgrade current user to seller role and attach store
+    const updatedUser: User = {
+      ...currentUser,
+      storeId: newStore.id,
+      shopName: newStore.name,
+      shopDescription: newStore.description,
+      shopWhatsapp: newStore.whatsapp,
+      bankName: storeData.bankName,
+      bankAccountNumber: storeData.bankAccountNumber,
+      bankAccountHolder: storeData.bankAccountHolder,
+      verifiedSeller: true,
+      role: 'seller',
+    };
+
+    setCurrentUser(updatedUser);
+    setUsers((prev) => prev.map((u) => (u.id === currentUser.id ? updatedUser : u)));
+    setActiveTab('seller');
+    setIsCreateStoreModalOpen(false);
+
+    return newStore;
+  };
+
+  // Courier Rating System ("tambahkan rating untuk kurir")
+  const rateCourier = async (orderId: string, courierId: string, rating: number, review: string) => {
+    const now = new Date().toISOString();
+    // 1. Update order locally
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId
+          ? { ...o, courierRating: rating, courierReview: review, courierRatingCreatedAt: now }
+          : o
+      )
+    );
+
+    // 2. Update courier user stats locally
+    if (courierId) {
+      setUsers((prev) =>
+        prev.map((u) => {
+          if (u.id === courierId) {
+            const count = (u.courierRatingCount || 0) + 1;
+            const currentAvg = u.courierRatingAverage || 5.0;
+            const newAvg = Number(((currentAvg * (count - 1) + rating) / count).toFixed(1));
+            return {
+              ...u,
+              courierRatingAverage: newAvg,
+              courierRatingCount: count,
+            };
+          }
+          return u;
+        })
+      );
+    }
+
+    // 3. Sync to Cloud Firestore
+    try {
+      await rateCourierInFirestore(orderId, courierId, rating, review);
+    } catch (e) {
+      console.warn('Gagal sinkronisasi rating kurir ke Firestore:', e);
+    }
+  };
+
   const resetToDefaults = () => {
     localStorage.clear();
     setUsers(INITIAL_USERS);
@@ -688,6 +1409,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         authError,
         setAuthError,
         users,
+        stores,
+        selectedStore,
+        selectedStoreId,
+        activeCouriers,
         products,
         categories,
         banners,
@@ -707,9 +1432,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isCheckoutModalOpen,
         isCartOpen,
         isSeoModalOpen,
+        isCreateStoreModalOpen,
+        sharingProduct,
+        isShareModalOpen,
         dataSaverMode,
 
         setActiveTab,
+        setSelectedStore,
+        setSelectedStoreId,
         setSelectedCategory,
         setSearchQuery,
         setSelectedProduct,
@@ -718,6 +1448,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsCheckoutModalOpen,
         setIsCartOpen,
         setIsSeoModalOpen,
+        setIsCreateStoreModalOpen,
+        isCourierModalOpen,
+        setIsCourierModalOpen,
+        setSharingProduct,
+        setIsShareModalOpen,
+        openShareProduct,
         setDataSaverMode,
 
         switchUser,
@@ -727,17 +1463,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         loginWithGoogle,
         logout,
 
+        // Courier Application Flow
+        courierApplications,
+        pendingCourierCount,
+        applyCourier,
+        approveCourierApplication,
+        rejectCourierApplication,
+
+        // Admin Manual Approval Flow
+        adminApprovals,
+        pendingAdminCount,
+        approveAdminRequest,
+        rejectAdminRequest,
+        revokeAdminAccess,
+        refreshAdminStatus,
+
+        // Cart
         addToCart,
         removeFromCart,
         updateCartQuantity,
+        updateCartItemNote,
         clearCart,
         getCartTotal,
 
+        // Wishlist
         toggleFavorite,
         isFavorite,
 
+        // Stores
+        updateStore,
+        verifyStore,
+        createStore,
+        rateCourier,
+
+        // Orders & Deliveries
         createOrder,
         updateOrderStatus,
+        assignCourierToOrder,
+        updateDeliveryStatus,
 
         addProduct,
         updateProduct,

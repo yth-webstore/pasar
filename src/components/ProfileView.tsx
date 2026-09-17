@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   AlertCircle,
   PlusCircle,
+  LogIn,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -41,6 +42,30 @@ export const ProfileView: React.FC = () => {
     if (currentUser?.role === 'seller') return o.sellerId === currentUser.id;
     return o.buyerId === currentUser?.id;
   });
+
+  if (!currentUser) {
+    return (
+      <div id="profile-logged-out-container" className="max-w-md mx-auto py-12 px-4 text-center space-y-5 animate-in fade-in duration-200">
+        <div className="w-20 h-20 bg-emerald-100 text-emerald-800 rounded-3xl flex items-center justify-center mx-auto shadow-xs">
+          <User className="w-10 h-10" />
+        </div>
+        <div className="space-y-1.5">
+          <h2 className="text-xl font-black text-neutral-900">Anda Sedang Keluar dari Akun</h2>
+          <p className="text-xs text-neutral-500 max-w-sm mx-auto leading-relaxed">
+            Silakan masuk atau daftar akun warga untuk mengelola lapak UMKM desa, mendaftar kurir antar desa, dan memantau rincian status pesanan belanja Anda.
+          </p>
+        </div>
+        <button
+          id="profile-login-btn"
+          onClick={() => setIsAuthModalOpen(true)}
+          className="w-full py-3 px-5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm rounded-2xl shadow-sm transition flex items-center justify-center gap-2 cursor-pointer"
+        >
+          <LogIn className="w-5 h-5" />
+          <span>Login</span>
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div id="profile-view-container" className="max-w-3xl mx-auto space-y-5 pb-24">
@@ -115,10 +140,13 @@ export const ProfileView: React.FC = () => {
           </div>
 
           <button
-            onClick={() => setIsAuthModalOpen(true)}
-            className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-xs transition"
+            id="profile-header-logout-btn"
+            onClick={logout}
+            className="px-3.5 py-2 border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-xl transition flex items-center gap-1.5 cursor-pointer shrink-0"
+            title="Keluar dari Akun"
           >
-            {firebaseUser ? 'Ganti Akun' : 'Masuk / Daftar Akun'}
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Keluar Akun</span>
           </button>
         </div>
       </div>
@@ -216,10 +244,11 @@ export const ProfileView: React.FC = () => {
               </p>
             </div>
             <button
-              onClick={() => setActiveTab('pesanan')}
-              className="px-3.5 py-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded-xl font-bold transition whitespace-nowrap self-start sm:self-auto text-xs"
+              onClick={() => setActiveTab('courier')}
+              className="px-3.5 py-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded-xl font-bold transition whitespace-nowrap self-start sm:self-auto text-xs flex items-center gap-1.5"
             >
-              Lihat Pengantaran
+              <Bike className="w-3.5 h-3.5" />
+              <span>Buka Panel Kurir Desa</span>
             </button>
           </div>
         ) : currentUser?.courierApprovalStatus === 'pending' ? (

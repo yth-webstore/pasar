@@ -5,11 +5,12 @@ import {
   ShoppingCart,
   ClipboardList,
   User as UserIcon,
+  LogIn,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 export const BottomNav: React.FC = () => {
-  const { activeTab, setActiveTab, cart, orders, currentUser, setIsCartOpen } = useApp();
+  const { activeTab, setActiveTab, cart, orders, currentUser, setIsCartOpen, setIsAuthModalOpen } = useApp();
 
   const cartCount = cart.reduce((acc, it) => acc + it.quantity, 0);
   const activeOrdersCount = orders.filter(
@@ -49,10 +50,16 @@ export const BottomNav: React.FC = () => {
     },
     {
       id: 'profil' as const,
-      label: 'Profil',
-      icon: UserIcon,
+      label: currentUser ? 'Profil' : 'Login',
+      icon: currentUser ? UserIcon : LogIn,
       badge: null,
-      onClick: () => setActiveTab('profil'),
+      onClick: () => {
+        if (!currentUser) {
+          setIsAuthModalOpen(true);
+        } else {
+          setActiveTab('profil');
+        }
+      },
     },
   ];
 

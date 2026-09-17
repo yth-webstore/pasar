@@ -1,8 +1,9 @@
 import { Product, VillageNews, Category } from '../types';
 
-export function updatePageSEO(title: string, description: string, url?: string, ogImage?: string) {
+export function updatePageSEO(title: string = '', description: string = '', url?: string, ogImage?: string) {
   // Update document title
-  const fullTitle = title.includes('Pasar Desa') ? title : `${title} | Pasar Desa Mandiri Mekar Terus`;
+  const safeTitle = typeof title === 'string' ? title : '';
+  const fullTitle = safeTitle.includes('Pasar Desa') ? safeTitle : `${safeTitle} | Pasar Desa Mandiri Mekar Terus`;
   document.title = fullTitle;
 
   // Update meta description

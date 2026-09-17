@@ -14,9 +14,12 @@ import {
   Minus,
   AlertCircle,
   Share2,
+  Clock,
+  Calendar,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatRupiah, injectProductJsonLd } from '../utils/seo';
+import { checkStoreOpenStatus } from '../utils/storeHours';
 
 export const ProductDetailModal: React.FC = () => {
   const {
@@ -28,6 +31,7 @@ export const ProductDetailModal: React.FC = () => {
     reviews,
     addReview,
     currentUser,
+    stores,
     setIsCartOpen,
     setIsAuthModalOpen,
     openShareProduct,
@@ -36,6 +40,17 @@ export const ProductDetailModal: React.FC = () => {
 
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState<'deskripsi' | 'ulasan' | 'toko'>('deskripsi');
+
+  // Find store matching product and evaluate real-time open/close/holiday status
+  const matchedStore = selectedProduct
+    ? stores.find(
+        (s) =>
+          s.id === selectedProduct.storeId ||
+          s.sellerId === selectedProduct.sellerId ||
+          s.name === selectedProduct.sellerName
+      )
+    : undefined;
+  const storeStatus = checkStoreOpenStatus(matchedStore);
 
   // Review Form State
   const [newRating, setNewRating] = useState(5);
@@ -204,28 +219,34 @@ export const ProductDetailModal: React.FC = () => {
 
                 {/* Seller Mini Card */}
                 <div className="mt-3 p-3 rounded-2xl border border-neutral-200 bg-neutral-50/50 flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-xl bg-emerald-700 text-white flex items-center justify-center font-bold text-sm">
-                      <Store className="w-4 h-4" />
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-700 text-white flex items-center justify-center font-bold text-sm shrink-0">
+                      <Store className="w-5 h-5" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <div className="font-bold text-xs text-neutral-900 flex items-center gap-1">
-                        {selectedProduct.sellerName}
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 inline" />
+                        <span className="truncate">{selectedProduct.sellerName}</span>
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                       </div>
-                      {/* Tag / Kategori produk berada di bawah nama lapak */}
-                      <div className="mt-0.5 mb-1">
+                      {/* Tag / Kategori produk & Badge Status Lapak */}
+                      <div className="mt-0.5 mb-1 flex items-center flex-wrap gap-1">
                         <span className="inline-block bg-emerald-100/90 text-emerald-800 font-bold text-[10px] px-2 py-0.5 rounded-md border border-emerald-200">
                           {selectedProduct.categoryName}
                         </span>
+                        <span className={`inline-block text-[10px] font-black px-2 py-0.5 rounded-md border ${storeStatus.badgeBg} ${storeStatus.badgeText} ${storeStatus.badgeBorder}`}>
+                          {storeStatus.statusText}
+                        </span>
                       </div>
-                      <div className="text-[11px] text-neutral-500 flex items-center gap-1">
-                        <MapPin className="w-3 h-3 text-neutral-400" />
-                        {selectedProduct.sellerDusun}
+                      <div className="text-[11px] text-neutral-500 flex items-center flex-wrap gap-1">
+                        <MapPin className="w-3 h-3 text-neutral-400 shrink-0" />
+                        <span className="truncate">{selectedProduct.sellerDusun}</span>
+                        <span className="text-neutral-300">•</span>
+                        <Clock className="w-3 h-3 text-neutral-400 shrink-0" />
+                        <span>{storeStatus.hoursDetail}</span>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 shrink-0 ml-2">
                     <button
                       id="wa-detail-btn"
                       onClick={handleWhatsApp}
@@ -236,6 +257,23 @@ export const ProductDetailModal: React.FC = () => {
                     </button>
                   </div>
                 </div>
+
+                {/* Notice if store is closed/on holiday/temporarily closed */}
+                {!storeStatus.isOpen && (
+                  <div className={`mt-2.5 p-2.5 rounded-xl border text-[11px] flex items-start gap-2 ${storeStatus.badgeBg} ${storeStatus.badgeBorder} ${storeStatus.badgeText}`}>
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <div className="leading-snug">
+                      <span className="font-bold block">{storeStatus.displayText}</span>
+                      <span className="opacity-90">
+                        {storeStatus.statusText === 'Tutup Sementara' && storeStatus.reasonDetail
+                          ? `Alasan pelapak: "${storeStatus.reasonDetail}". Pesanan Anda tetap dapat dibuat dan akan disiapkan saat pelapak buka kembali.`
+                          : storeStatus.statusText === 'Libur'
+                          ? `Hari ini lapak sedang libur rutin (${storeStatus.holidayDetail}). Pesanan Anda tetap dapat dibuat dan akan diproses pada hari buka berikutnya.`
+                          : `Lapak buka setiap ${storeStatus.hoursDetail}. Anda tetap dapat melakukan pemesanan sekarang.`}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Quantity selector */}
@@ -407,17 +445,39 @@ export const ProductDetailModal: React.FC = () => {
           {/* Tab Content: Toko */}
           {activeTab === 'toko' && (
             <div className="space-y-3 text-xs text-neutral-700">
-              <div className="p-3.5 rounded-2xl bg-neutral-50 border border-neutral-200 space-y-2">
-                <div className="font-bold text-sm text-neutral-900 flex items-center gap-1.5">
-                  <Store className="w-4 h-4 text-emerald-700" />
-                  {selectedProduct.sellerName}
+              <div className="p-3.5 rounded-2xl bg-neutral-50 border border-neutral-200 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="font-bold text-sm text-neutral-900 flex items-center gap-1.5">
+                    <Store className="w-4 h-4 text-emerald-700" />
+                    <span>{selectedProduct.sellerName}</span>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] border ${storeStatus.badgeBg} ${storeStatus.badgeText} ${storeStatus.badgeBorder}`}>
+                    {storeStatus.statusText}
+                  </span>
                 </div>
-                <p className="text-xs text-neutral-600">
+                <p className="text-xs text-neutral-600 leading-relaxed">
                   Unit usaha mikro warga binaan yang terdaftar resmi pada sistem pendataan {settings.bumdesName || 'BUMDes'} {settings.villageName}.
                 </p>
-                <div className="pt-2 border-t border-neutral-200 flex flex-col gap-1 text-[11px]">
+                <div className="pt-2 border-t border-neutral-200 flex flex-col gap-1.5 text-[11px]">
                   <div>📍 <strong>Lokasi:</strong> {selectedProduct.sellerDusun}</div>
                   <div>📱 <strong>WhatsApp Toko:</strong> +{selectedProduct.sellerWhatsapp}</div>
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
+                    <span><strong>Jam Buka:</strong> {storeStatus.hoursDetail}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
+                    <span><strong>Hari Libur:</strong> {storeStatus.holidayDetail}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold">Status Lapak:</span>
+                    <span className="text-neutral-700 font-semibold">{storeStatus.displayText}</span>
+                  </div>
+                  {storeStatus.reasonDetail && (
+                    <div className="text-rose-700 bg-rose-50 p-1.5 rounded-lg border border-rose-200">
+                      ℹ️ <strong>Catatan:</strong> {storeStatus.reasonDetail}
+                    </div>
+                  )}
                   <div>🚚 <strong>Opsi Kirim:</strong> Diantar Kurir {settings.villageName} / Ambil di Lokasi Toko</div>
                 </div>
               </div>

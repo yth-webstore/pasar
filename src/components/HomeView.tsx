@@ -57,15 +57,16 @@ export const HomeView: React.FC = () => {
     if (!searchQuery.trim()) return [];
     const q = searchQuery.toLowerCase();
     return products.filter((p) => {
-      const matchName = p.name.toLowerCase().includes(q);
-      const matchCategory = p.categoryName.toLowerCase().includes(q);
-      const matchSeller = p.sellerName.toLowerCase().includes(q);
-      const matchDesc = p.description.toLowerCase().includes(q);
+      if (!p) return false;
+      const matchName = p.name ? p.name.toLowerCase().includes(q) : false;
+      const matchCategory = p.categoryName ? p.categoryName.toLowerCase().includes(q) : false;
+      const matchSeller = p.sellerName ? p.sellerName.toLowerCase().includes(q) : false;
+      const matchDesc = p.description ? p.description.toLowerCase().includes(q) : false;
       return matchName || matchCategory || matchSeller || matchDesc;
     });
   }, [products, searchQuery]);
 
-  const favoriteProducts = products.filter((p) => favorites.includes(p.id));
+  const favoriteProducts = products.filter((p) => Array.isArray(favorites) && favorites.includes(p.id));
   const promoProducts = products.filter((p) => p.isPromo);
   const popularProducts = products.filter((p) => p.isPopular || p.soldCount > 50);
   const latestProducts = [...products].reverse().slice(0, 6);

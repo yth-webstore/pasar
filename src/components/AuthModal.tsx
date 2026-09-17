@@ -411,6 +411,66 @@ export const AuthModal: React.FC = () => {
                   </>
                 )}
               </button>
+
+              {/* Quick test accounts for seamless access */}
+              <div className="pt-2 border-t border-neutral-100">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-extrabold text-neutral-600 uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    Masuk Cepat Uji Coba Peran
+                  </span>
+                  <span className="text-[10px] text-neutral-400">1-Klik Langsung Aktif</span>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIdentifier('081234567890');
+                      login('081234567890', undefined, 'buyer');
+                    }}
+                    className="p-2 rounded-xl bg-blue-50/70 hover:bg-blue-100/70 border border-blue-200/70 text-left transition group"
+                  >
+                    <div className="font-bold text-blue-950 text-[11px] truncate">Siti Rahmawati</div>
+                    <div className="text-[10px] text-blue-700">Warga / Pembeli</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIdentifier('085712345678');
+                      login('085712345678', undefined, 'seller');
+                    }}
+                    className="p-2 rounded-xl bg-emerald-50/70 hover:bg-emerald-100/70 border border-emerald-200/70 text-left transition group"
+                  >
+                    <div className="font-bold text-emerald-950 text-[11px] truncate">Pak Budi Santoso</div>
+                    <div className="text-[10px] text-emerald-700">Pedagang UMKM</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIdentifier('082211445566');
+                      login('082211445566', undefined, 'courier');
+                    }}
+                    className="p-2 rounded-xl bg-orange-50/70 hover:bg-orange-100/70 border border-orange-200/70 text-left transition group"
+                  >
+                    <div className="font-bold text-orange-950 text-[11px] truncate">Kang Ujang</div>
+                    <div className="text-[10px] text-orange-700">Kurir Antar Desa</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIdentifier('yth.abdurrohman@gmail.com');
+                      login('yth.abdurrohman@gmail.com', undefined, 'admin');
+                    }}
+                    className="p-2 rounded-xl bg-purple-50/70 hover:bg-purple-100/70 border border-purple-200/70 text-left transition group"
+                  >
+                    <div className="font-bold text-purple-950 text-[11px] truncate">Admin BUMDes</div>
+                    <div className="text-[10px] text-purple-700">Super Admin Desa</div>
+                  </button>
+                </div>
+              </div>
             </form>
           ) : (
             <form onSubmit={handleRegisterSubmit} className="space-y-3">

@@ -32,6 +32,10 @@ export const AdminApprovalPanel: React.FC = () => {
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [selectedReqForReject, setSelectedReqForReject] = useState<AdminApprovalRequest | null>(null);
   const [rejectReasonInput, setRejectReasonInput] = useState('');
+  const [revokeModalOpen, setRevokeModalOpen] = useState(false);
+  const [selectedReqForRevoke, setSelectedReqForRevoke] = useState<AdminApprovalRequest | null>(null);
+  const [revokeReasonInput, setRevokeReasonInput] = useState('');
+  const [isSubmittingRevoke, setIsSubmittingRevoke] = useState(false);
   const [isRefreshingStatus, setIsRefreshingStatus] = useState(false);
   const [statusRefreshMessage, setStatusRefreshMessage] = useState<string | null>(null);
 
@@ -67,11 +71,11 @@ export const AdminApprovalPanel: React.FC = () => {
       if (!approvalSearch.trim()) return true;
       const q = approvalSearch.toLowerCase();
       return (
-        req.name.toLowerCase().includes(q) ||
-        req.position.toLowerCase().includes(q) ||
-        req.dusun.toLowerCase().includes(q) ||
-        req.phone.includes(q) ||
-        req.email.toLowerCase().includes(q)
+        (req.name && req.name.toLowerCase().includes(q)) ||
+        (req.position && req.position.toLowerCase().includes(q)) ||
+        (req.dusun && req.dusun.toLowerCase().includes(q)) ||
+        (req.phone && req.phone.includes(q)) ||
+        (req.email && req.email.toLowerCase().includes(q))
       );
     });
 
@@ -394,15 +398,11 @@ export const AdminApprovalPanel: React.FC = () => {
                           id={`revoke-btn-${req.id}`}
                           type="button"
                           onClick={() => {
-                            if (
-                              confirm(
-                                `Apakah Anda yakin ingin mencabut hak akses Admin untuk ${req.name}? Akun tidak akan dapat lagi mengelola panel desa.`
-                              )
-                            ) {
-                              revokeAdminAccess(req.userId);
-                            }
+                            setSelectedReqForRevoke(req);
+                            setRevokeReasonInput('Hak akses admin dicabut oleh Administrator Utama Desa.');
+                            setRevokeModalOpen(true);
                           }}
-                          className="px-3.5 py-1.5 text-rose-700 hover:bg-rose-50 border border-rose-200 rounded-xl font-bold flex items-center gap-1.5 transition text-[11px]"
+                          className="px-3.5 py-1.5 text-rose-700 hover:bg-rose-50 border border-rose-200 rounded-xl font-bold flex items-center gap-1.5 transition text-[11px] cursor-pointer"
                         >
                           <UserX className="w-3.5 h-3.5" />
                           <span>Cabut Hak Akses</span>
@@ -536,6 +536,113 @@ export const AdminApprovalPanel: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Dialog Cabut Hak Akses Admin (In-App Modal Tanpa window.confirm) */}
+      {revokeModalOpen && selectedReqForRevoke && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-neutral-200 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
+                <UserX className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-neutral-900">Cabut Hak Akses Admin</h3>
+                <p className="text-xs text-neutral-500">Konfirmasi pencabutan wewenang kelola desa</p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-neutral-50 rounded-2xl border border-neutral-200/80 space-y-1">
+              <p className="text-xs font-bold text-neutral-800">
+                {selectedReqForRevoke.name}{' '}
+                <span className="text-neutral-500 font-normal">
+                  ({selectedReqForRevoke.position || 'Admin Desa'})
+                </span>
+              </p>
+              <p className="text-[11px] text-neutral-500">
+                {selectedReqForRevoke.dusun} • {selectedReqForRevoke.phone}
+              </p>
+            </div>
+
+            <p className="text-xs text-neutral-700 leading-relaxed">
+              Apakah Anda yakin ingin mencabut hak akses admin untuk akun ini? Setelah dicabut, akun tidak dapat lagi membuka panel admin desa dan wewenangnya dialihkan ke akun warga biasa.
+            </p>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-neutral-700 block mb-1">
+                  Pilih Catatan / Alasan Cepat:
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    'Masa tugas atau jabatan pengurus telah berakhir',
+                    'Rotasi penugasan internal kantor desa / BUMDes',
+                    'Permintaan penonaktifan dari yang bersangkutan',
+                    'Pelanggaran kebijakan pengelolaan panel desa',
+                  ].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setRevokeReasonInput(preset)}
+                      className="px-2.5 py-1 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[11px] font-medium transition text-left"
+                    >
+                      + {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-neutral-700 block mb-1">
+                  Catatan Alasan Pencabutan Hak Akses:
+                </label>
+                <textarea
+                  rows={2}
+                  value={revokeReasonInput}
+                  onChange={(e) => setRevokeReasonInput(e.target.value)}
+                  placeholder="Tuliskan catatan pencabutan..."
+                  className="w-full p-2.5 rounded-xl border border-neutral-300 bg-white focus:ring-2 focus:ring-rose-200 outline-none resize-none"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={isSubmittingRevoke}
+                  onClick={() => {
+                    setRevokeModalOpen(false);
+                    setSelectedReqForRevoke(null);
+                  }}
+                  className="px-4 py-2.5 border border-neutral-300 rounded-xl font-bold text-neutral-700 hover:bg-neutral-100 transition"
+                >
+                  Batal
+                </button>
+                <button
+                  id="confirm-revoke-admin-action-btn"
+                  type="button"
+                  disabled={isSubmittingRevoke}
+                  onClick={async () => {
+                    setIsSubmittingRevoke(true);
+                    try {
+                      await revokeAdminAccess(
+                        selectedReqForRevoke.userId,
+                        revokeReasonInput.trim() || undefined
+                      );
+                      setRevokeModalOpen(false);
+                      setSelectedReqForRevoke(null);
+                    } finally {
+                      setIsSubmittingRevoke(false);
+                    }
+                  }}
+                  className="flex-1 py-2.5 bg-rose-700 hover:bg-rose-800 text-white rounded-xl font-bold shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <UserX className="w-4 h-4" />
+                  <span>{isSubmittingRevoke ? 'Mencabut Akses...' : 'Ya, Cabut Hak Akses'}</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

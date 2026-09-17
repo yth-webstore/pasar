@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Package,
   Clock,
@@ -11,15 +11,61 @@ import {
   Star,
   ThumbsUp,
   X,
+  Bike,
+  Sparkles,
+  Zap,
+  Home,
+  MapPin,
+  Search,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Order, OrderStatus } from '../types';
 import { formatRupiah } from '../utils/seo';
+import { OrderTrackingModal } from './OrderTrackingModal';
 
 export const OrdersView: React.FC = () => {
-  const { orders, currentUser, updateOrderStatus, setSelectedProduct, products, rateCourier, stores, settings } = useApp();
+  const {
+    orders,
+    currentUser,
+    updateOrderStatus,
+    confirmOrderReceivedByBuyer,
+    forceAutoCompleteOrder,
+    setSelectedProduct,
+    products,
+    rateCourier,
+    stores,
+    settings,
+    selectedOrderIdForTracking,
+    setSelectedOrderIdForTracking,
+  } = useApp();
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedProofUrl, setSelectedProofUrl] = useState<string | null>(null);
+  const [, setTimerTick] = useState<number>(Date.now());
+
+  // Periodically refresh countdown
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimerTick(Date.now());
+    }, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const formatRemainingTime = (deliveredAtStr?: string, autoAtStr?: string) => {
+    const FIVE_HOURS_MS = 5 * 60 * 60 * 1000;
+    const targetMs = autoAtStr
+      ? new Date(autoAtStr).getTime()
+      : deliveredAtStr
+      ? new Date(deliveredAtStr).getTime() + FIVE_HOURS_MS
+      : Date.now();
+
+    const diff = targetMs - Date.now();
+    if (diff <= 0) return 'Batas 5 jam tercapai (segera selesai otomatis)';
+
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    return `${hours} jam ${minutes} menit lagi`;
+  };
 
   // State for courier rating modal
   const [ratingCourierOrder, setRatingCourierOrder] = useState<Order | null>(null);
@@ -29,13 +75,33 @@ export const OrdersView: React.FC = () => {
 
   // Filter orders related to current user
   const userOrders = orders.filter((o) => {
+    if (!o) return false;
     if (currentUser?.role === 'admin') return true; // Admin can see all
     if (currentUser?.role === 'seller') return o.sellerId === currentUser.id;
-    return o.buyerId === currentUser?.id;
+    if (currentUser?.role === 'courier') return true;
+    if (currentUser?.role === 'buyer') {
+      return (
+        o.buyerId === currentUser.id ||
+        Boolean(currentUser.phone && o.buyerPhone && o.buyerPhone.includes(currentUser.phone))
+      );
+    }
+    // Guest or not logged in: allow viewing orders placed in session
+    return true;
   });
 
   const filteredOrders = userOrders.filter((o) => {
-    return filterStatus === 'all' || o.status === filterStatus;
+    if (!o) return false;
+    const matchesFilter = filterStatus === 'all' || o.status === filterStatus;
+    if (!matchesFilter) return false;
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      (o.invoiceNumber && o.invoiceNumber.toLowerCase().includes(q)) ||
+      (o.buyerName && o.buyerName.toLowerCase().includes(q)) ||
+      (o.buyerPhone && o.buyerPhone.includes(q)) ||
+      (o.patokanRumah && o.patokanRumah.toLowerCase().includes(q)) ||
+      (o.landmarkLabel && o.landmarkLabel.toLowerCase().includes(q))
+    );
   });
 
   // Handle courier rating submit
@@ -143,28 +209,50 @@ export const OrdersView: React.FC = () => {
         </div>
       </div>
 
-      {/* Status Filter Tabs */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs font-semibold">
-        {[
-          { id: 'all', label: 'Semua' },
-          { id: 'menunggu', label: 'Menunggu' },
-          { id: 'diproses', label: 'Diproses' },
-          { id: 'dikirim', label: 'Dikirim' },
-          { id: 'selesai', label: 'Selesai' },
-          { id: 'dibatalkan', label: 'Dibatalkan' },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setFilterStatus(tab.id)}
-            className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition ${
-              filterStatus === tab.id
-                ? 'bg-emerald-700 text-white shadow-xs'
-                : 'bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-100'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* Status Filter Tabs & Search Bar */}
+      <div className="space-y-2.5">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs font-semibold">
+          {[
+            { id: 'all', label: 'Semua' },
+            { id: 'menunggu', label: 'Menunggu' },
+            { id: 'diproses', label: 'Diproses' },
+            { id: 'dikirim', label: 'Dikirim' },
+            { id: 'selesai', label: 'Selesai' },
+            { id: 'dibatalkan', label: 'Dibatalkan' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setFilterStatus(tab.id)}
+              className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition cursor-pointer ${
+                filterStatus === tab.id
+                  ? 'bg-emerald-700 text-white shadow-xs'
+                  : 'bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-100'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Input Cari Nomor Invoice / Nama / No HP / Patokan */}
+        <div className="relative">
+          <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Cari pesanan berdasarkan invoice, nama pembeli, nomor HP, atau patokan rumah..."
+            className="w-full pl-9 pr-4 py-2 bg-white rounded-2xl border border-neutral-200 text-xs focus:ring-2 focus:ring-emerald-200 outline-none"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 text-xs cursor-pointer"
+            >
+              ✕
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Orders List */}
@@ -238,12 +326,63 @@ export const OrdersView: React.FC = () => {
                 </div>
               </div>
 
+              {/* 5-Hour Auto-Completion / Waiting Buyer Confirmation Alert */}
+              {order.deliveryStatus === 'delivered' && order.status !== 'selesai' && (
+                <div className="bg-purple-50 border-2 border-purple-200 rounded-2xl p-3.5 text-xs space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 font-black text-purple-950">
+                      <Bike className="w-4 h-4 text-purple-700" />
+                      <span>Paket Sudah Diserahkan Kurir ke Lokasi Anda</span>
+                    </div>
+                    <div className="bg-purple-200/80 text-purple-900 text-[10px] font-black px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-purple-700" />
+                      <span>Otomatis Selesai: {formatRemainingTime(order.courierDeliveredAt, order.autoCompleteAt)}</span>
+                    </div>
+                  </div>
+                  <p className="text-purple-900 text-[11px] leading-relaxed">
+                    Kurir telah menyerahkan paket. Silakan periksa kelengkapan pesanan Anda dan klik tombol <strong>"Konfirmasi Pengiriman Selesai"</strong>. Apabila tidak dikonfirmasi selesai oleh pembeli, maka proses selesai otomatis terjadi 5 jam setelah kurir menyerahkan paket.
+                  </p>
+                </div>
+              )}
+
+              {/* Completion status note */}
+              {order.status === 'selesai' && (
+                <div className="text-[11px] px-3 py-1.5 rounded-xl border flex items-center gap-1.5 font-medium bg-neutral-50 border-neutral-200 text-neutral-700">
+                  {order.completedBy === 'system_auto_5h' ? (
+                    <>
+                      <Clock className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                      <span>
+                        Selesai otomatis oleh sistem (melewati batas 5 jam setelah kurir menyerahkan paket).
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>Pesanan telah dikonfirmasi selesai oleh Pembeli.</span>
+                    </>
+                  )}
+                </div>
+              )}
+
               {/* Delivery and payment detail */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs bg-neutral-50/70 p-3 rounded-2xl border border-neutral-100">
                 <div>
                   <span className="text-[11px] text-neutral-500 block">Penerima & Alamat:</span>
                   <span className="font-bold text-neutral-800">{order.buyerName}</span> ({order.buyerPhone})
                   <div className="text-[11px] text-neutral-600 mt-0.5">{order.buyerAddress}</div>
+
+                  {/* Patokan Rumah / Lokasi Titip */}
+                  {order.patokanRumah && (
+                    <div className="mt-2 p-2 bg-emerald-50 rounded-xl border border-emerald-200/80 text-[11px] text-emerald-950 flex items-start gap-1.5">
+                      <Home className="w-3.5 h-3.5 text-emerald-700 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold text-emerald-900">
+                          {order.landmarkLabel || 'Patokan Rumah'}:{' '}
+                        </span>
+                        <span className="text-neutral-700">{order.patokanRumah}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <span className="text-[11px] text-neutral-500 block">Pembayaran & Pengiriman:</span>
@@ -329,12 +468,22 @@ export const OrdersView: React.FC = () => {
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Tombol Lihat Status Pesanan */}
+                  <button
+                    id={`track-order-btn-${order.id}`}
+                    onClick={() => setSelectedOrderIdForTracking(order.id)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-100 hover:bg-emerald-200 rounded-xl transition cursor-pointer shadow-2xs"
+                  >
+                    <Truck className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>Lihat Status Pesanan</span>
+                  </button>
+
                   {/* View payment proof image if exists */}
                   {order.paymentProofUrl && (
                     <button
                       onClick={() => setSelectedProofUrl(order.paymentProofUrl!)}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-neutral-700 bg-neutral-100 hover:bg-neutral-200 rounded-xl transition"
                     >
                       <Eye className="w-3.5 h-3.5" />
                       Lihat Bukti
@@ -344,19 +493,40 @@ export const OrdersView: React.FC = () => {
                   {/* WhatsApp Hubungi Penjual */}
                   <button
                     onClick={() => handleWhatsAppContact(order)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-100 hover:bg-emerald-200 rounded-xl transition"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-neutral-700 bg-neutral-100 hover:bg-neutral-200 rounded-xl transition"
                   >
                     <MessageCircle className="w-3.5 h-3.5 text-emerald-700" />
                     Hubungi Penjual
                   </button>
 
+                  {/* Testing helper button to simulate 5 hours elapsed */}
+                  {order.deliveryStatus === 'delivered' && order.status !== 'selesai' && (
+                    <button
+                      onClick={() => forceAutoCompleteOrder(order.id)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-purple-800 bg-purple-100 hover:bg-purple-200 rounded-xl transition"
+                      title="Simulasi batas 5 jam terlewati"
+                    >
+                      <Zap className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Uji 5 Jam</span>
+                    </button>
+                  )}
+
                   {/* Buyer action: Konfirmasi Diterima */}
                   {order.status === 'dikirim' && currentUser?.role === 'buyer' && (
                     <button
-                      onClick={() => updateOrderStatus(order.id, 'selesai')}
-                      className="px-3 py-1.5 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded-xl shadow-xs transition"
+                      id={`buyer-confirm-received-btn-${order.id}`}
+                      onClick={() => {
+                        confirmOrderReceivedByBuyer(order.id);
+                        if (order.deliveryMethod === 'antar_desa' && !order.courierRating) {
+                          setRatingCourierOrder(order);
+                          setCourierRatingScore(5);
+                          setCourierReviewText('');
+                        }
+                      }}
+                      className="px-3.5 py-1.5 text-xs font-black text-white bg-emerald-700 hover:bg-emerald-800 rounded-xl shadow-xs transition flex items-center gap-1.5"
                     >
-                      Konfirmasi Terima
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Konfirmasi Pengiriman Selesai</span>
                     </button>
                   )}
 
@@ -462,7 +632,7 @@ export const OrdersView: React.FC = () => {
                   key={tag}
                   type="button"
                   onClick={() => {
-                    if (courierReviewText.includes(tag)) return;
+                    if (courierReviewText && courierReviewText.includes(tag)) return;
                     setCourierReviewText((prev) => (prev ? `${prev}, ${tag}` : tag));
                   }}
                   className="px-2.5 py-1 bg-neutral-100 hover:bg-emerald-50 hover:text-emerald-800 text-neutral-700 rounded-lg transition font-medium border border-neutral-200/80"
@@ -525,6 +695,14 @@ export const OrdersView: React.FC = () => {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Modal Detail Pelacakan Status Pesanan & Patokan Rumah */}
+      {selectedOrderIdForTracking && (
+        <OrderTrackingModal
+          orderId={selectedOrderIdForTracking}
+          onClose={() => setSelectedOrderIdForTracking(null)}
+        />
       )}
     </div>
   );

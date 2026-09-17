@@ -45,8 +45,19 @@ export interface User {
   adminApprovedBy?: string;
   adminRejectionReason?: string;
   isSuperAdmin?: boolean; // Super admin utama desa
+  // Patokan Rumah / Delivery Landmarks (Pilihan beberapa rumah ketika tidak di rumah)
+  savedLandmarks?: HouseLandmark[];
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface HouseLandmark {
+  id: string;
+  label: string; // Contoh: "Rumah Utama", "Titip Rumah Nenek", "Kantor Desa / Balai", "Titip Tetangga"
+  recipientNote?: string; // Contoh: "Titip teras / titip Bu Siti tetangga sebelah"
+  dusun: string; // Dusun domisili
+  detail: string; // Patokan lengkap, warna pagar, dekat fasilitas umum
+  isDefault?: boolean;
 }
 
 export interface Store {
@@ -67,6 +78,8 @@ export interface Store {
   closedDays?: string; // e.g. "Minggu" / "Buka Setiap Hari" / "Jumat"
   openTime?: string;
   closeTime?: string;
+  isManuallyClosed?: boolean;
+  manualCloseReason?: string;
   createdAt: string;
   updatedAt?: string;
 }
@@ -206,10 +219,14 @@ export interface Order {
   sellerWhatsapp?: string;
   courierId?: string;
   courierName?: string;
+  courierPhone?: string;
+  courierVehicle?: string;
   buyerName: string;
   buyerPhone: string;
   buyerAddress: string;
   buyerDusun: string;
+  patokanRumah?: string; // Patokan / penanda rumah pengantaran
+  landmarkLabel?: string; // Label rumah (misal: "Rumah Utama", "Titip Rumah Nenek")
   items: OrderItem[];
   subtotal: number;
   ongkir: number; // deliveryFee
@@ -223,6 +240,14 @@ export interface Order {
   paymentMethod: PaymentMethod;
   paymentProofUrl?: string;
   deliveryMethod: 'antar_desa' | 'ambil_toko';
+  orderAcceptedAt?: string; // Penjual menerima pesanan
+  orderProcessedAt?: string; // Penjual memproses pesanan
+  orderShippedAt?: string; // Penjual mengirim & memilih kurir
+  courierPickedUpAt?: string; // Kurir menerima paket dari penjual
+  courierDeliveredAt?: string; // Kurir menyerahkan paket ke pembeli
+  autoCompleteAt?: string; // Batas waktu 5 jam otomatis selesai
+  completedAt?: string; // Waktu pesanan selesai
+  completedBy?: 'buyer' | 'system_auto_5h' | 'admin' | 'seller';
   courierRating?: number; // 1 to 5 stars
   courierReview?: string;
   courierRatingCreatedAt?: string;

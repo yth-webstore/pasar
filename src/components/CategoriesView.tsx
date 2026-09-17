@@ -57,10 +57,10 @@ export const CategoriesView: React.FC = () => {
         // Search query
         if (searchQuery.trim()) {
           const query = searchQuery.toLowerCase();
-          const matchName = p.name.toLowerCase().includes(query);
-          const matchCategory = p.categoryName.toLowerCase().includes(query);
-          const matchSeller = p.sellerName.toLowerCase().includes(query);
-          const matchDesc = p.description.toLowerCase().includes(query);
+          const matchName = p.name ? p.name.toLowerCase().includes(query) : false;
+          const matchCategory = p.categoryName ? p.categoryName.toLowerCase().includes(query) : false;
+          const matchSeller = p.sellerName ? p.sellerName.toLowerCase().includes(query) : false;
+          const matchDesc = p.description ? p.description.toLowerCase().includes(query) : false;
           if (!matchName && !matchCategory && !matchSeller && !matchDesc) {
             return false;
           }

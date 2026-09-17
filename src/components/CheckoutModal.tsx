@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   CreditCard,
@@ -14,11 +14,17 @@ import {
   MessageCircle,
   BellRing,
   Store,
+  Home,
+  MapPin,
+  Plus,
+  Bookmark,
+  Check,
+  ShieldCheck,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatRupiah } from '../utils/seo';
 import { compressAndOptimizeImage, CompressionResult } from '../utils/imageCompressor';
-import { Order } from '../types';
+import { Order, HouseLandmark } from '../types';
 
 export const CheckoutModal: React.FC = () => {
   const {
@@ -31,6 +37,9 @@ export const CheckoutModal: React.FC = () => {
     sendOrderWhatsAppToSeller,
     updateCartItemNote,
     setActiveTab,
+    savedLandmarks,
+    addSavedLandmark,
+    setSelectedOrderIdForTracking,
   } = useApp();
 
   const [deliveryMethod, setDeliveryMethod] = useState<'antar_desa' | 'ambil_toko'>('antar_desa');
@@ -40,6 +49,32 @@ export const CheckoutModal: React.FC = () => {
   const [buyerDusun, setBuyerDusun] = useState(currentUser?.dusun || 'Dusun Krajan, RT 02 / RW 01');
   const [buyerAddressDetail, setBuyerAddressDetail] = useState('');
   const [notes, setNotes] = useState('');
+
+  // Landmark / Patokan Rumah State
+  const [selectedLandmarkId, setSelectedLandmarkId] = useState<string>(
+    savedLandmarks[0]?.id || 'lm-1'
+  );
+  const [isAwayFromHome, setIsAwayFromHome] = useState<boolean>(false);
+  const [saveNewLandmark, setSaveNewLandmark] = useState<boolean>(true);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  // New Landmark Modal / Inline Form
+  const [isAddingLandmark, setIsAddingLandmark] = useState<boolean>(false);
+  const [newLmLabel, setNewLmLabel] = useState<string>('');
+  const [newLmDusun, setNewLmDusun] = useState<string>('Dusun Krajan, RT 01 / RW 01');
+  const [newLmDetail, setNewLmDetail] = useState<string>('');
+  const [newLmRecipientNote, setNewLmRecipientNote] = useState<string>('');
+
+  // Sync with selected landmark when changed
+  useEffect(() => {
+    if (selectedLandmarkId && selectedLandmarkId !== 'custom') {
+      const lm = savedLandmarks.find((l) => l.id === selectedLandmarkId);
+      if (lm) {
+        setBuyerDusun(lm.dusun);
+        setBuyerAddressDetail(lm.detail);
+      }
+    }
+  }, [selectedLandmarkId, savedLandmarks]);
 
   // Proof of transfer upload state
   const [compressionResult, setCompressionResult] = useState<CompressionResult | null>(null);
@@ -95,19 +130,32 @@ export const CheckoutModal: React.FC = () => {
 
   const handleConfirmOrder = (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
 
     if (!buyerName.trim() || !buyerPhone.trim() || !buyerDusun.trim()) {
-      alert('Mohon lengkapi nama, nomor HP / WhatsApp, dan dusun alamat Anda.');
+      setFormError('Mohon lengkapi nama penerima, nomor HP/WhatsApp, dan wilayah dusun pengantaran.');
       return;
     }
 
-    if (paymentMethod === 'transfer' && !compressionResult) {
-      if (!confirm('Anda memilih metode transfer namun belum mengunggah foto bukti transfer. Tetap lanjutkan dan kirim bukti via WhatsApp nanti?')) {
-        return;
-      }
+    if (!buyerAddressDetail.trim()) {
+      setFormError('Mohon isi patokan rumah atau alamat pengantaran agar kurir desa mudah menemukan lokasi Anda.');
+      return;
+    }
+
+    const selectedLandmark = savedLandmarks.find((l) => l.id === selectedLandmarkId);
+
+    // Save as new landmark if requested
+    if (saveNewLandmark && (selectedLandmarkId === 'custom' || !selectedLandmark)) {
+      addSavedLandmark({
+        label: isAwayFromHome ? 'Titip Rumah Lain' : 'Patokan Rumah',
+        dusun: buyerDusun,
+        detail: buyerAddressDetail,
+        recipientNote: isAwayFromHome ? 'Sedang tidak di rumah (titip paket)' : undefined,
+      });
     }
 
     const fullAddress = `${buyerDusun}${buyerAddressDetail ? ` - ${buyerAddressDetail}` : ''}`;
+    const landmarkLabel = selectedLandmark ? selectedLandmark.label : (isAwayFromHome ? 'Titip Rumah Lain' : 'Patokan Rumah');
 
     const newOrders = createOrder({
       buyerAddress: fullAddress,
@@ -117,15 +165,48 @@ export const CheckoutModal: React.FC = () => {
       paymentMethod,
       paymentProofUrl: compressionResult?.dataUrl,
       notes,
+      patokanRumah: buyerAddressDetail,
+      landmarkLabel,
     });
 
     setCreatedOrders(newOrders);
   };
 
-  const handleFinish = () => {
+  const handleFinish = (orderId?: string) => {
     setIsCheckoutModalOpen(false);
+    if (orderId) {
+      setSelectedOrderIdForTracking(orderId);
+    } else if (createdOrders && createdOrders.length > 0) {
+      setSelectedOrderIdForTracking(createdOrders[0].id);
+    }
     setCreatedOrders(null);
     setActiveTab('pesanan');
+  };
+
+  // Quick helper to add a brand new landmark
+  const handleSaveNewLandmarkModal = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newLmLabel.trim() || !newLmDetail.trim()) return;
+
+    addSavedLandmark({
+      label: newLmLabel.trim(),
+      dusun: newLmDusun,
+      detail: newLmDetail.trim(),
+      recipientNote: newLmRecipientNote.trim() || undefined,
+    });
+
+    // Automatically select the new landmark
+    setBuyerDusun(newLmDusun);
+    setBuyerAddressDetail(
+      newLmRecipientNote.trim()
+        ? `(Titip: ${newLmRecipientNote.trim()}) ${newLmDetail.trim()}`
+        : newLmDetail.trim()
+    );
+    setSelectedLandmarkId('custom');
+    setIsAddingLandmark(false);
+    setNewLmLabel('');
+    setNewLmDetail('');
+    setNewLmRecipientNote('');
   };
 
   return (
@@ -241,10 +322,11 @@ export const CheckoutModal: React.FC = () => {
               <div className="pt-2 flex flex-col sm:flex-row gap-2">
                 <button
                   id="view-orders-btn"
-                  onClick={handleFinish}
-                  className="flex-1 py-3 px-4 bg-emerald-700 hover:bg-emerald-800 text-white text-xs sm:text-sm font-bold rounded-2xl shadow-md transition"
+                  onClick={() => handleFinish(createdOrders?.[0]?.id)}
+                  className="flex-1 py-3 px-4 bg-emerald-700 hover:bg-emerald-800 text-white text-xs sm:text-sm font-bold rounded-2xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  Lihat Status Pesanan Saya
+                  <Truck className="w-4 h-4" />
+                  <span>Lihat Status Pesanan Saya</span>
                 </button>
               </div>
             </div>
@@ -252,10 +334,24 @@ export const CheckoutModal: React.FC = () => {
             /* Checkout Form */
             <form onSubmit={handleConfirmOrder} className="space-y-4">
               {/* Data Penerima & Alamat Lengkap */}
-              <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-200 space-y-3">
-                <div className="text-xs font-bold text-neutral-800 uppercase tracking-wide">
-                  1. Alamat Lengkap Pengantaran Warga
+              <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-200 space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-bold text-neutral-800 uppercase tracking-wide flex items-center gap-1.5">
+                    <Home className="w-4 h-4 text-emerald-700" />
+                    <span>1. Alamat Pengantaran & Patokan Rumah</span>
+                  </div>
+                  <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                    Bisa Titip Rumah Lain
+                  </span>
                 </div>
+
+                {/* Form Error Banner */}
+                {formError && (
+                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs flex items-center gap-2 animate-in fade-in">
+                    <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
+                    <span>{formError}</span>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
@@ -289,9 +385,115 @@ export const CheckoutModal: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Opsi Sedang Tidak di Rumah & Pilihan Patokan Rumah */}
+                <div className="bg-white p-3.5 rounded-2xl border border-emerald-200/90 space-y-3 shadow-2xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <div className="text-xs font-bold text-neutral-900 flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-emerald-700" />
+                        <span>Pilih Patokan Rumah Pengantaran:</span>
+                      </div>
+                      <p className="text-[11px] text-neutral-500">
+                        Pilih rumah utama Anda, atau pilih opsi titip jika sedang tidak di rumah.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingLandmark(true)}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1.5 rounded-xl border border-emerald-200 transition shrink-0 cursor-pointer self-start sm:self-auto"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>+ Tambah Patokan Rumah Baru</span>
+                    </button>
+                  </div>
+
+                  {/* Daftar Pilihan Patokan Rumah Tersimpan */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {savedLandmarks.map((lm) => {
+                      const isSelected = selectedLandmarkId === lm.id;
+                      return (
+                        <button
+                          key={lm.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedLandmarkId(lm.id);
+                            setBuyerDusun(lm.dusun);
+                            setBuyerAddressDetail(lm.detail);
+                            if (lm.recipientNote) {
+                              setIsAwayFromHome(true);
+                            }
+                          }}
+                          className={`text-left p-2.5 rounded-xl border transition cursor-pointer flex flex-col justify-between ${
+                            isSelected
+                              ? 'bg-emerald-50/80 border-emerald-600 ring-2 ring-emerald-500/20 shadow-2xs'
+                              : 'bg-neutral-50/70 border-neutral-200 hover:bg-neutral-100/70'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-1 mb-1">
+                            <span className="font-bold text-xs text-neutral-900 truncate">
+                              {lm.label}
+                            </span>
+                            {isSelected && (
+                              <Check className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                            )}
+                          </div>
+                          <p className="text-[11px] text-neutral-600 line-clamp-2 leading-relaxed">
+                            {lm.detail}
+                          </p>
+                          <div className="text-[10px] text-neutral-400 mt-1 flex items-center justify-between">
+                            <span>{lm.dusun.split(',')[0]}</span>
+                            {lm.recipientNote && (
+                              <span className="text-emerald-700 font-medium">Titip: {lm.recipientNote}</span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+
+                    {/* Opsi Custom / Tulis Patokan Lain */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedLandmarkId('custom');
+                        setIsAwayFromHome(true);
+                      }}
+                      className={`text-left p-2.5 rounded-xl border transition cursor-pointer flex flex-col justify-between ${
+                        selectedLandmarkId === 'custom'
+                          ? 'bg-emerald-50/80 border-emerald-600 ring-2 ring-emerald-500/20 shadow-2xs'
+                          : 'bg-neutral-50/70 border-neutral-200 hover:bg-neutral-100/70'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-1 mb-1">
+                        <span className="font-bold text-xs text-neutral-900">
+                          📝 Tulis Patokan / Rumah Lain
+                        </span>
+                        {selectedLandmarkId === 'custom' && (
+                          <Check className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                        )}
+                      </div>
+                      <p className="text-[11px] text-neutral-500">
+                        Isi alamat khusus untuk pesanan kali ini atau simpan sebagai patokan baru.
+                      </p>
+                      <div className="text-[10px] text-emerald-700 font-semibold mt-1">
+                        Kustom alamat & titip
+                      </div>
+                    </button>
+                  </div>
+
+                  {/* Banner Info Sedang Tidak di Rumah */}
+                  <div className="p-2.5 bg-amber-50/80 border border-amber-200 rounded-xl flex items-start gap-2 text-[11px] text-amber-900">
+                    <Home className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                    <div className="leading-relaxed">
+                      <strong>Sedang tidak berada di rumah?</strong> Anda dapat memilih opsi titip ke rumah tetangga, nenek/saudara, atau kantor balai desa agar kurir tidak bolak-balik.
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dusun & Detail Patokan */}
                 <div>
                   <label className="text-[11px] font-semibold text-neutral-600 block mb-1">
-                    Alamat Lengkap (Dusun, RT/RW, dan Wilayah Domisili) *
+                    Wilayah Dusun & RT/RW Tujuan *
                   </label>
                   <select
                     id="buyer-dusun-select"
@@ -312,16 +514,27 @@ export const CheckoutModal: React.FC = () => {
 
                 <div>
                   <label className="text-[11px] font-semibold text-neutral-600 block mb-1">
-                    Patokan Rumah / Alamat Lengkap & Detail Jalan
+                    Detail Patokan Rumah & Petunjuk Pengantaran *
                   </label>
-                  <input
+                  <textarea
+                    rows={2}
                     id="buyer-address-detail"
-                    type="text"
-                    placeholder="Contoh: Jl. Poros Desa No. 12, Depan Mushola Al-Ikhlas, Pagar Hijau"
+                    placeholder="Contoh: Depan mushola Al-Ikhlas, pagar cat hijau, titip di teras Bu RT jika saya sedang ke ladang"
                     value={buyerAddressDetail}
                     onChange={(e) => setBuyerAddressDetail(e.target.value)}
-                    className="w-full text-xs p-2 rounded-xl border border-neutral-300 bg-white focus:ring-2 focus:ring-emerald-200 outline-none"
+                    className="w-full text-xs p-2 rounded-xl border border-neutral-300 bg-white focus:ring-2 focus:ring-emerald-200 outline-none resize-none"
                   />
+                  <div className="flex items-center justify-between pt-1">
+                    <label className="flex items-center gap-1.5 text-[11px] text-neutral-600 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={saveNewLandmark}
+                        onChange={(e) => setSaveNewLandmark(e.target.checked)}
+                        className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5"
+                      />
+                      <span>Simpan patokan rumah ini ke daftar alamat saya</span>
+                    </label>
+                  </div>
                 </div>
               </div>
 
@@ -608,6 +821,119 @@ export const CheckoutModal: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Modal Tambah Patokan Rumah Baru / Opsi Titip Rumah */}
+      {isAddingLandmark && (
+        <div className="fixed inset-0 z-60 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <form
+            onSubmit={handleSaveNewLandmarkModal}
+            className="bg-white rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl border border-neutral-200 space-y-4 animate-in fade-in zoom-in-95 duration-150"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+                  <Home className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-black text-neutral-900">
+                    Tambah Patokan Rumah / Titip
+                  </h3>
+                  <p className="text-[11px] text-neutral-500">
+                    Simpan patokan rumah lain jika sedang tidak di rumah
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddingLandmark(false)}
+                className="w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center text-neutral-600 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="text-[11px] font-bold text-neutral-700 block mb-1">
+                  Nama Label Patokan *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newLmLabel}
+                  onChange={(e) => setNewLmLabel(e.target.value)}
+                  placeholder="Contoh: Titip Rumah Nenek, Rumah Paman Anton, Toko Bu RT"
+                  className="w-full text-xs p-2.5 rounded-xl border border-neutral-300 bg-white focus:ring-2 focus:ring-emerald-200 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-neutral-700 block mb-1">
+                  Wilayah Dusun & RT/RW *
+                </label>
+                <select
+                  value={newLmDusun}
+                  onChange={(e) => setNewLmDusun(e.target.value)}
+                  className="w-full text-xs p-2.5 rounded-xl border border-neutral-300 bg-white focus:ring-2 focus:ring-emerald-200 outline-none"
+                >
+                  <option value="Dusun Krajan, RT 01 / RW 01">Dusun Krajan (RT 01 / RW 01)</option>
+                  <option value="Dusun Krajan, RT 02 / RW 01">Dusun Krajan (RT 02 / RW 01)</option>
+                  <option value="Dusun Krajan, RT 03 / RW 01">Dusun Krajan (RT 03 / RW 01)</option>
+                  <option value="Dusun Sukarame, RT 01 / RW 02">Dusun Sukarame (RT 01 / RW 02)</option>
+                  <option value="Dusun Sukarame, RT 02 / RW 02">Dusun Sukarame (RT 02 / RW 02)</option>
+                  <option value="Dusun Dukuh Kidul, RT 01 / RW 03">Dusun Dukuh Kidul (RT 01 / RW 03)</option>
+                  <option value="Dusun Dukuh Kidul, RT 04 / RW 03">Dusun Dukuh Kidul (RT 04 / RW 03)</option>
+                  <option value="Dusun Mekarwangi, RT 01 / RW 04">Dusun Mekarwangi (RT 01 / RW 04)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-neutral-700 block mb-1">
+                  Detail Ciri-Ciri Patokan Jalan & Rumah *
+                </label>
+                <textarea
+                  rows={2}
+                  required
+                  value={newLmDetail}
+                  onChange={(e) => setNewLmDetail(e.target.value)}
+                  placeholder="Contoh: Sebelah barat pos kamling RT 01, pagar bambu kuning, ada pohon mangga di depan"
+                  className="w-full text-xs p-2.5 rounded-xl border border-neutral-300 bg-white focus:ring-2 focus:ring-emerald-200 outline-none resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-neutral-700 block mb-1">
+                  Catatan Penerima / Instruksi Titip (Opsional)
+                </label>
+                <input
+                  type="text"
+                  value={newLmRecipientNote}
+                  onChange={(e) => setNewLmRecipientNote(e.target.value)}
+                  placeholder="Contoh: Titip ke Bude Siti, atau taruh di rak sepatu teras"
+                  className="w-full text-xs p-2.5 rounded-xl border border-neutral-300 bg-white focus:ring-2 focus:ring-emerald-200 outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="pt-2 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsAddingLandmark(false)}
+                className="px-4 py-2 text-xs font-bold text-neutral-600 hover:bg-neutral-100 rounded-xl border border-neutral-200 transition cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>Simpan & Gunakan</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 };

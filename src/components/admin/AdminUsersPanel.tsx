@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
-import { Users, CheckCircle2, Search, Phone, ShieldAlert, Bike, Store, ShoppingBag, Star } from 'lucide-react';
+import { Users, CheckCircle2, Search, Phone, ShieldAlert, Bike, Store, ShoppingBag, Star, UserX } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { UserRole } from '../../types';
+import { UserRole, User } from '../../types';
 
 export const AdminUsersPanel: React.FC = () => {
-  const { users } = useApp();
+  const { users, currentUser, revokeAdminAccess } = useApp();
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | UserRole>('all');
+  const [userToRevoke, setUserToRevoke] = useState<User | null>(null);
+  const [revokeReason, setRevokeReason] = useState('');
+  const [isRevoking, setIsRevoking] = useState(false);
 
   const filteredUsers = users
     .filter((u) => {
@@ -17,10 +20,10 @@ export const AdminUsersPanel: React.FC = () => {
       if (!search.trim()) return true;
       const q = search.toLowerCase();
       return (
-        u.name.toLowerCase().includes(q) ||
+        (u.name && u.name.toLowerCase().includes(q)) ||
         (u.shopName && u.shopName.toLowerCase().includes(q)) ||
-        u.dusun.toLowerCase().includes(q) ||
-        u.phone.includes(q)
+        (u.dusun && u.dusun.toLowerCase().includes(q)) ||
+        (u.phone && u.phone.includes(q))
       );
     });
 
@@ -133,11 +136,97 @@ export const AdminUsersPanel: React.FC = () => {
                     </a>
                   )}
                 </div>
+
+                {/* Tombol Cabut Hak Akses Admin langsung dari daftar pengguna */}
+                {u.role === 'admin' && !u.isSuperAdmin && currentUser?.isSuperAdmin && (
+                  <div className="mt-2 pt-2 border-t border-neutral-100 flex items-center justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUserToRevoke(u);
+                        setRevokeReason('Hak akses admin dicabut oleh Administrator Utama Desa.');
+                      }}
+                      className="text-[11px] font-bold text-rose-700 hover:text-rose-800 hover:bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200 flex items-center gap-1 transition cursor-pointer"
+                    >
+                      <UserX className="w-3.5 h-3.5" />
+                      <span>Cabut Hak Akses Admin</span>
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           );
         })}
       </div>
+
+      {/* Modal Dialog Cabut Hak Akses Admin */}
+      {userToRevoke && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-neutral-200 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
+                <UserX className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-neutral-900">Cabut Hak Akses Admin</h3>
+                <p className="text-xs text-neutral-500">Konfirmasi pencabutan wewenang kelola desa</p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-neutral-50 rounded-2xl border border-neutral-200/80 space-y-1">
+              <p className="text-xs font-bold text-neutral-800">{userToRevoke.name}</p>
+              <p className="text-[11px] text-neutral-500">
+                {userToRevoke.dusun} • {userToRevoke.phone}
+              </p>
+            </div>
+
+            <p className="text-xs text-neutral-700 leading-relaxed">
+              Apakah Anda yakin ingin mencabut hak akses admin untuk <strong>{userToRevoke.name}</strong>? Akun akan diturunkan statusnya menjadi akun warga biasa.
+            </p>
+
+            <div>
+              <label className="text-[11px] font-bold text-neutral-700 block mb-1">
+                Catatan Alasan Pencabutan:
+              </label>
+              <textarea
+                rows={2}
+                value={revokeReason}
+                onChange={(e) => setRevokeReason(e.target.value)}
+                placeholder="Alasan pencabutan wewenang..."
+                className="w-full text-xs p-2.5 rounded-xl border border-neutral-300 bg-white focus:ring-2 focus:ring-rose-200 outline-none resize-none"
+              />
+            </div>
+
+            <div className="pt-2 flex items-center gap-2">
+              <button
+                type="button"
+                disabled={isRevoking}
+                onClick={() => setUserToRevoke(null)}
+                className="px-4 py-2 text-xs font-bold text-neutral-700 hover:bg-neutral-100 rounded-xl border border-neutral-300 transition cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={isRevoking}
+                onClick={async () => {
+                  setIsRevoking(true);
+                  try {
+                    await revokeAdminAccess(userToRevoke.id, revokeReason.trim() || undefined);
+                    setUserToRevoke(null);
+                  } finally {
+                    setIsRevoking(false);
+                  }
+                }}
+                className="flex-1 py-2 text-xs font-bold bg-rose-700 hover:bg-rose-800 text-white rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <UserX className="w-4 h-4" />
+                <span>{isRevoking ? 'Mencabut...' : 'Ya, Cabut Hak Akses'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

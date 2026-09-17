@@ -25,7 +25,8 @@ export function validateImageFile(file: File): { valid: boolean; error?: string 
 
   // Allow only standard image formats
   const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg', 'image/heic', 'image/heif'];
-  if (!validTypes.includes(file.type.toLowerCase()) && !file.type.startsWith('image/')) {
+  const fileType = (file?.type || '').toLowerCase();
+  if (!validTypes.includes(fileType) && !fileType.startsWith('image/')) {
     return {
       valid: false,
       error: 'Format berkas tidak didukung. Silakan pilih foto dengan format JPG, PNG, atau WebP.',

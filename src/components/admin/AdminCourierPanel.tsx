@@ -62,10 +62,10 @@ export const AdminCourierPanel: React.FC = () => {
     const matchFilter = filter === 'all' || app.status === filter;
     const matchSearch =
       search === '' ||
-      app.name.toLowerCase().includes(search.toLowerCase()) ||
-      app.phone.includes(search) ||
-      app.vehicleInfo.toLowerCase().includes(search.toLowerCase()) ||
-      app.dusun.toLowerCase().includes(search.toLowerCase());
+      Boolean(app.name && app.name.toLowerCase().includes(search.toLowerCase())) ||
+      Boolean(app.phone && app.phone.includes(search)) ||
+      Boolean(app.vehicleInfo && app.vehicleInfo.toLowerCase().includes(search.toLowerCase())) ||
+      Boolean(app.dusun && app.dusun.toLowerCase().includes(search.toLowerCase()));
     return matchFilter && matchSearch;
   });
 

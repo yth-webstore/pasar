@@ -17,9 +17,9 @@ export const AdminProductsPanel: React.FC = () => {
       if (!search.trim()) return true;
       const q = search.toLowerCase();
       return (
-        p.name.toLowerCase().includes(q) ||
-        p.sellerName.toLowerCase().includes(q) ||
-        p.categoryName.toLowerCase().includes(q)
+        (p.name && p.name.toLowerCase().includes(q)) ||
+        (p.sellerName && p.sellerName.toLowerCase().includes(q)) ||
+        (p.categoryName && p.categoryName.toLowerCase().includes(q))
       );
     });
 

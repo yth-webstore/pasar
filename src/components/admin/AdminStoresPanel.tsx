@@ -10,9 +10,12 @@ import {
   ShieldCheck,
   Star,
   ExternalLink,
+  Clock,
+  Calendar,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Store } from '../../types';
+import { checkStoreOpenStatus } from '../../utils/storeHours';
 
 export const AdminStoresPanel: React.FC = () => {
   const { stores, products, verifyStore, setActiveTab, setSelectedStoreId } = useApp();
@@ -29,10 +32,10 @@ export const AdminStoresPanel: React.FC = () => {
       if (!search.trim()) return true;
       const q = search.toLowerCase();
       return (
-        s.name.toLowerCase().includes(q) ||
-        s.dusun.toLowerCase().includes(q) ||
-        s.sellerName.toLowerCase().includes(q) ||
-        s.phone.includes(q)
+        (s.name && s.name.toLowerCase().includes(q)) ||
+        (s.dusun && s.dusun.toLowerCase().includes(q)) ||
+        (s.sellerName && s.sellerName.toLowerCase().includes(q)) ||
+        (s.phone && s.phone.includes(q))
       );
     });
 
@@ -91,6 +94,7 @@ export const AdminStoresPanel: React.FC = () => {
         {filteredStores.map((store) => {
           const storeProducts = products.filter((p) => p.storeId === store.id || p.sellerId === store.sellerId);
           const cleanPhone = (store.phone || store.whatsapp || '').replace(/[^0-9]/g, '');
+          const storeStatus = checkStoreOpenStatus(store);
 
           return (
             <div
@@ -104,6 +108,13 @@ export const AdminStoresPanel: React.FC = () => {
                     alt={store.name}
                     className="w-full h-full object-cover"
                   />
+                  <div className="absolute top-2.5 left-2.5">
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${storeStatus.badgeBg} ${storeStatus.badgeText} ${storeStatus.badgeBorder} shadow-xs`}
+                    >
+                      {storeStatus.statusText}
+                    </span>
+                  </div>
                   <div className="absolute top-2.5 right-2.5">
                     <span
                       className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 ${
@@ -153,6 +164,17 @@ export const AdminStoresPanel: React.FC = () => {
                     <div className="flex items-center gap-1">
                       <Package className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
                       <span>{storeProducts.length} Produk</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[10px] text-neutral-500 pt-1.5 border-t border-neutral-100">
+                    <div className="flex items-center gap-1" title={`Jam Buka: ${store.openingHours || '06:00 - 21:00 WIB'}`}>
+                      <Clock className="w-3 h-3 text-neutral-400 shrink-0" />
+                      <span className="truncate">{store.openingHours || '06:00 - 21:00'}</span>
+                    </div>
+                    <div className="flex items-center gap-1" title={`Libur: ${store.closedDays || 'Buka Setiap Hari'}`}>
+                      <Calendar className="w-3 h-3 text-neutral-400 shrink-0" />
+                      <span className="truncate">{store.closedDays || 'Setiap Hari'}</span>
                     </div>
                   </div>
                 </div>

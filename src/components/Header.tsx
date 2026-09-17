@@ -19,6 +19,8 @@ import {
   Clock,
   Trash2,
   CheckCheck,
+  Bike,
+  LogIn,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -223,6 +225,23 @@ export const Header: React.FC = () => {
             </button>
           )}
 
+          {/* Courier Dashboard shortcut if user is courier or admin */}
+          {(currentUser?.role === 'courier' || currentUser?.role === 'admin') && (
+            <button
+              id="header-courier-btn"
+              onClick={() => setActiveTab('courier')}
+              className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs transition shadow-2xs ${
+                activeTab === 'courier'
+                  ? 'bg-blue-700 text-white shadow-xs'
+                  : 'bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200'
+              }`}
+              title="Panel Kurir: Ambil & Antar Paket"
+            >
+              <Bike className="w-3.5 h-3.5 text-blue-600" />
+              <span>Antaran Kurir</span>
+            </button>
+          )}
+
           {/* Admin Dashboard shortcut if user is admin */}
           {currentUser?.role === 'admin' && (
             <button
@@ -399,19 +418,26 @@ export const Header: React.FC = () => {
             </button>
           ) : (
             <button
-              id="login-register-header-btn"
+              id="login-header-btn"
               onClick={() => setIsAuthModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-sm transition"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white text-xs font-bold rounded-xl shadow-sm transition shrink-0 cursor-pointer"
+              title="Login ke Akun Pasar Desa"
             >
-              <UserCheck className="w-4 h-4" />
-              <span>Masuk</span>
+              <LogIn className="w-4 h-4" />
+              <span>Login</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* Row 2: Combined Search & Filter Bar with Search History Feature - Hidden on Profil and Pesanan */}
-      {activeTab !== 'profil' && activeTab !== 'pesanan' && (
+      {/* Row 2: Combined Search & Filter Bar - Hidden on Dashboards (Kurir, Penjual, Pembeli/Pesanan, Profil, Admin) */}
+      {activeTab !== 'courier' &&
+        (activeTab as string) !== 'kurir' &&
+        activeTab !== 'toko' &&
+        activeTab !== 'seller' &&
+        activeTab !== 'pesanan' &&
+        activeTab !== 'profil' &&
+        activeTab !== 'admin' && (
         <div id="header-search-category-bar" className="bg-neutral-50/80 border-t border-neutral-200/80 px-3 sm:px-4 py-2 sm:py-2.5">
           <div className="max-w-7xl mx-auto relative" ref={searchContainerRef}>
             <form
@@ -450,8 +476,9 @@ export const Header: React.FC = () => {
               </select>
             </div>
 
-            {/* Search Input Bar */}
-            <div className="relative flex-1 flex items-center min-w-0">
+            {/* Search Input Bar (clean inline icon, no separate submit button) */}
+            <div className="relative flex-1 flex items-center min-w-0 px-3">
+              <Search className="w-4 h-4 text-neutral-400 shrink-0 mr-2 pointer-events-none" />
               <input
                 id="search-input-header"
                 type="text"
@@ -462,31 +489,20 @@ export const Header: React.FC = () => {
                   setSearchInput(e.target.value);
                   setSearchQuery(e.target.value);
                 }}
-                className="w-full bg-transparent text-xs sm:text-sm px-3 py-2 outline-none placeholder:text-neutral-400 text-neutral-800"
+                className="w-full bg-transparent text-xs sm:text-sm py-2 outline-none placeholder:text-neutral-400 text-neutral-800"
               />
               {searchInput && (
                 <button
                   type="button"
                   id="clear-search-btn"
                   onClick={handleClearSearch}
-                  className="text-neutral-400 hover:text-neutral-600 p-1 mr-1 transition shrink-0"
+                  className="text-neutral-400 hover:text-neutral-600 p-1 transition shrink-0"
                   title="Hapus pencarian"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
-
-            {/* Functional Search Submit Button */}
-            <button
-              type="submit"
-              id="submit-search-btn"
-              className="bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white px-3.5 sm:px-4 py-2 self-stretch flex items-center justify-center gap-1.5 font-bold text-xs transition shrink-0 cursor-pointer"
-              title="Cari Produk"
-            >
-              <Search className="w-3.5 h-3.5 shrink-0" />
-              <span className="hidden sm:inline">Cari</span>
-            </button>
           </form>
 
           {/* Recent Search History Dropdown */}

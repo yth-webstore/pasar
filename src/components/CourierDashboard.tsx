@@ -319,7 +319,7 @@ export const CourierDashboard: React.FC = () => {
                 <div className="text-xs space-y-1 bg-neutral-50 p-3 rounded-2xl border border-neutral-100">
                   <div className="font-bold text-neutral-700 text-[11px]">Rincian Barang yang Diambil:</div>
                   {ord.items.map((it, idx) => (
-                    <div key={idx} className="flex justify-between text-[11px] text-neutral-600">
+                    <div key={`courier-item-${ord.id}-${it.productId || idx}-${idx}`} className="flex justify-between text-[11px] text-neutral-600">
                       <span>• {it.productName} ({it.quantity} {it.unit})</span>
                       <span className="font-semibold">{formatRupiah(it.price * it.quantity)}</span>
                     </div>

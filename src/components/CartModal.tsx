@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, Store, FileText } from 'lucide-react';
+import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, Store, FileText, User } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatRupiah } from '../utils/seo';
 
@@ -16,6 +16,7 @@ export const CartModal: React.FC = () => {
     setIsCheckoutModalOpen,
     setSelectedProduct,
     settings,
+    currentUser,
   } = useApp();
 
   if (!isCartOpen) return null;
@@ -39,20 +40,38 @@ export const CartModal: React.FC = () => {
         className="bg-white w-full max-w-md h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-250"
       >
         {/* Drawer Header */}
-        <div className="px-5 py-4 border-b border-neutral-200 flex items-center justify-between bg-neutral-50">
-          <div className="flex items-center gap-2">
-            <ShoppingBag className="w-5 h-5 text-emerald-700" />
-            <h2 className="text-base font-extrabold text-neutral-900">
-              Keranjang Belanja ({count})
-            </h2>
+        <div className="px-5 py-3.5 border-b border-neutral-200 flex flex-col gap-2 bg-neutral-50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShoppingBag className="w-5 h-5 text-emerald-700" />
+              <h2 className="text-base font-extrabold text-neutral-900">
+                Keranjang Belanja ({count})
+              </h2>
+            </div>
+            <button
+              id="close-cart-btn"
+              onClick={() => setIsCartOpen(false)}
+              className="w-8 h-8 rounded-full bg-neutral-200 hover:bg-neutral-300 text-neutral-700 flex items-center justify-center transition"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
-          <button
-            id="close-cart-btn"
-            onClick={() => setIsCartOpen(false)}
-            className="w-8 h-8 rounded-full bg-neutral-200 hover:bg-neutral-300 text-neutral-700 flex items-center justify-center transition"
-          >
-            <X className="w-4 h-4" />
-          </button>
+
+          {/* Account Indicator Badge */}
+          <div className="flex items-center justify-between text-[11px] pt-1 border-t border-neutral-200/60">
+            <span className="text-neutral-500">Pemilik Keranjang:</span>
+            {currentUser ? (
+              <span className="inline-flex items-center gap-1 font-semibold text-emerald-800 bg-emerald-100/70 px-2 py-0.5 rounded-md text-[11px] truncate max-w-48">
+                <User className="w-3 h-3 text-emerald-700 shrink-0" />
+                <span className="truncate">{currentUser.name}</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 font-medium text-amber-800 bg-amber-100/70 px-2 py-0.5 rounded-md text-[11px]">
+                <User className="w-3 h-3 text-amber-700 shrink-0" />
+                <span>Akun Tamu (Offline)</span>
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Drawer Content */}

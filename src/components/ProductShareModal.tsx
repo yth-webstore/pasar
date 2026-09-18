@@ -25,7 +25,7 @@ export const ProductShareModal: React.FC = () => {
   const waDirectLink = `https://wa.me/${cleanWa}?text=${encodeURIComponent(`Halo ${sharingProduct.sellerName}, saya ingin memesan ${sharingProduct.name} (${formatRupiah(sharingProduct.price)}/${sharingProduct.unit}). Apakah masih tersedia?`)}`;
 
   // Share text using seller's WhatsApp number instead of website link
-  const shareText = `🌾 *${sharingProduct.name}*\n💰 Harga: ${formatRupiah(sharingProduct.price)} / ${sharingProduct.unit}\n📍 Dusun: ${sharingProduct.sellerDusun.split(',')[0]}\n🏪 Lapak: ${sharingProduct.sellerName}\n📱 Nomor WhatsApp Penjual: ${rawWa}\n\nLangsung hubungi dan pesan ke penjual via WhatsApp:\n${waDirectLink}`;
+  const shareText = `🌾 *${sharingProduct.name}*\n💰 Harga: ${formatRupiah(sharingProduct.price)} / ${sharingProduct.unit}\n📍 Dusun: ${(sharingProduct.sellerDusun || '').split(',')[0]}\n🏪 Lapak: ${sharingProduct.sellerName}\n📱 Nomor WhatsApp Penjual: ${rawWa}\n\nLangsung hubungi dan pesan ke penjual via WhatsApp:\n${waDirectLink}`;
 
   const handleCopyWhatsAppNumber = async () => {
     try {
@@ -137,7 +137,7 @@ export const ProductShareModal: React.FC = () => {
               </div>
               <div className="flex items-center gap-1 text-[11px] text-neutral-500 mt-0.5">
                 <MapPin className="w-3 h-3 text-neutral-400 shrink-0" />
-                <span className="truncate">{sharingProduct.sellerName} • {sharingProduct.sellerDusun.split(',')[0]}</span>
+                <span className="truncate">{sharingProduct.sellerName} • {(sharingProduct.sellerDusun || '').split(',')[0]}</span>
               </div>
             </div>
           </div>

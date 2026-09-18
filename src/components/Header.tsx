@@ -126,7 +126,7 @@ export const Header: React.FC = () => {
       <div id="village-top-bar" className="bg-emerald-800 text-white text-xs px-3 py-1.5 font-medium flex items-center justify-between">
         <div className="flex items-center gap-2 overflow-hidden whitespace-nowrap">
           <span className="bg-emerald-600 text-white px-2 py-0.5 rounded text-[11px] font-bold tracking-wide shrink-0">
-            {settings.bumdesName.split(' ')[0]}
+            {(settings?.bumdesName || 'BUMDes').split(' ')[0]}
           </span>
           <span className="truncate">
             📢 Layanan Pasar Digital Resmi {settings.villageName} • Ongkir flat se-desa hanya Rp 3.000
@@ -281,7 +281,7 @@ export const Header: React.FC = () => {
                 <div className="flex items-center justify-between border-b border-neutral-100 pb-2 mb-2">
                   <div className="flex items-center gap-1.5">
                     <Bell className="w-4 h-4 text-emerald-700" />
-                    <span className="text-xs font-bold text-neutral-900">Notifikasi Pesanan & Transaksi</span>
+                    <span className="text-xs font-bold text-neutral-900">Notifikasi Pesanan Masuk & Selesai</span>
                   </div>
                   {unreadNotificationCount > 0 && (
                     <button
@@ -311,7 +311,7 @@ export const Header: React.FC = () => {
                     </button>
                   </div>
                   <div className="text-[10px] text-neutral-600 leading-tight">
-                    Bunyi otomatis saat checkout berhasil, kurir bergerak, dan pesanan selesai diterima.
+                    Bunyi otomatis saat pesanan baru masuk dan saat pesanan selesai dikonfirmasi.
                   </div>
                   <div className="flex items-center gap-1.5 pt-1">
                     <span className="text-[10px] text-neutral-500 font-medium">Tes Nada:</span>
@@ -334,7 +334,7 @@ export const Header: React.FC = () => {
                 <div className="max-h-60 overflow-y-auto space-y-1.5">
                   {notifications.length === 0 ? (
                     <div className="text-center py-4 text-xs text-neutral-500">
-                      Belum ada notifikasi transaksi terbaru.
+                      Belum ada notifikasi pesanan masuk atau selesai.
                     </div>
                   ) : (
                     notifications.slice(0, 8).map((notif) => (

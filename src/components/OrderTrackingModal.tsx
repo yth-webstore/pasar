@@ -358,7 +358,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
             </div>
             <div className="space-y-1.5 divide-y divide-neutral-200/60">
               {order.items.map((item, i) => (
-                <div key={i} className="pt-1.5 first:pt-0 flex items-center justify-between text-xs">
+                <div key={`tracking-item-${order.id}-${item.productId || i}-${i}`} className="pt-1.5 first:pt-0 flex items-center justify-between text-xs">
                   <div className="flex-1 pr-2 truncate">
                     <span className="font-semibold text-neutral-900">{item.productName}</span>
                     <span className="text-neutral-500 ml-1">x{item.quantity}</span>

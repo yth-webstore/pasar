@@ -221,7 +221,7 @@ export const OrdersView: React.FC = () => {
             { id: 'dibatalkan', label: 'Dibatalkan' },
           ].map((tab) => (
             <button
-              key={tab.id}
+              key={`order-filter-tab-${tab.id}`}
               onClick={() => setFilterStatus(tab.id)}
               className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition cursor-pointer ${
                 filterStatus === tab.id
@@ -268,101 +268,108 @@ export const OrdersView: React.FC = () => {
         </div>
       ) : (
         <div className="space-y-4">
-          {filteredOrders.map((order) => (
-            <div
-              key={order.id}
-              className="bg-white rounded-3xl border border-neutral-200 shadow-xs p-4 sm:p-5 space-y-3.5 transition-all hover:border-emerald-300"
-            >
-              {/* Order Header */}
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-100 pb-3">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-emerald-700" />
-                  <span className="font-extrabold text-xs text-neutral-900">
-                    {order.invoiceNumber}
-                  </span>
-                  <span className="text-[11px] text-neutral-400">• {order.createdAt}</span>
-                </div>
-                <div>{getStatusBadge(order.status)}</div>
-              </div>
-
-              {/* Seller info & items */}
-              <div>
-                <div className="mb-2">
-                  <div className="text-xs font-bold text-neutral-800">
-                    Lapak: <span className="text-emerald-800">{order.sellerName}</span>
+          {filteredOrders.map((order, orderIndex) => {
+            const orderKey = order?.id
+              ? `order-${order.id}-${orderIndex}`
+              : `order-${order?.orderNumber || order?.invoiceNumber || orderIndex}-${orderIndex}`;
+            return (
+              <div
+                key={orderKey}
+                className="bg-white rounded-3xl border border-neutral-200 shadow-xs p-4 sm:p-5 space-y-3.5 transition-all hover:border-emerald-300"
+              >
+                {/* Order Header */}
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-emerald-700" />
+                    <span className="font-extrabold text-xs text-neutral-900">
+                      {order.invoiceNumber}
+                    </span>
+                    <span className="text-[11px] text-neutral-400">• {order.createdAt}</span>
                   </div>
-                  {order.items[0] && (
-                    <div className="mt-0.5">
-                      <span className="inline-block bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-bold text-[10px] px-1.5 py-0.5 rounded-md">
-                        {products.find((p) => p.id === order.items[0].productId)?.categoryName || 'Produk UMKM Desa'}
-                      </span>
-                    </div>
-                  )}
+                  <div>{getStatusBadge(order.status)}</div>
                 </div>
 
-                <div className="space-y-2">
-                  {order.items.map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-3 bg-neutral-50 p-2.5 rounded-2xl">
-                      <img
-                        src={item.imageUrl}
-                        alt={item.productName}
-                        className="w-12 h-12 rounded-xl object-cover bg-white shrink-0 border border-neutral-200"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-xs text-neutral-900 truncate">
-                          {item.productName}
-                        </h4>
-                        <div className="text-[11px] text-neutral-500">
-                          {item.quantity} x {formatRupiah(item.price)} /{item.unit}
+                {/* Seller info & items */}
+                <div>
+                  <div className="mb-2">
+                    <div className="text-xs font-bold text-neutral-800">
+                      Lapak: <span className="text-emerald-800">{order.sellerName}</span>
+                    </div>
+                    {order.items?.[0] && (
+                      <div className="mt-0.5">
+                        <span className="inline-block bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-bold text-[10px] px-1.5 py-0.5 rounded-md">
+                          {products.find((p) => p.id === order.items?.[0]?.productId)?.categoryName || 'Produk UMKM Desa'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    {(order.items || []).map((item, idx) => (
+                      <div
+                        key={`order-${order.id || orderIndex}-item-${item.productId || idx}-${idx}`}
+                        className="flex items-center gap-3 bg-neutral-50 p-2.5 rounded-2xl"
+                      >
+                        <img
+                          src={item.imageUrl}
+                          alt={item.productName}
+                          className="w-12 h-12 rounded-xl object-cover bg-white shrink-0 border border-neutral-200"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-bold text-xs text-neutral-900 truncate">
+                            {item.productName}
+                          </h4>
+                          <div className="text-[11px] text-neutral-500">
+                            {item.quantity} x {formatRupiah(item.price)} /{item.unit}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-extrabold text-xs text-neutral-900">
+                            {formatRupiah(item.price * item.quantity)}
+                          </div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="font-extrabold text-xs text-neutral-900">
-                          {formatRupiah(item.price * item.quantity)}
-                        </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 5-Hour Auto-Completion / Waiting Buyer Confirmation Alert */}
+                {order.deliveryStatus === 'delivered' && order.status !== 'selesai' && (
+                  <div className="bg-purple-50 border-2 border-purple-200 rounded-2xl p-3.5 text-xs space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 font-black text-purple-950">
+                        <Bike className="w-4 h-4 text-purple-700" />
+                        <span>Paket Sudah Diserahkan Kurir ke Lokasi Anda</span>
+                      </div>
+                      <div className="bg-purple-200/80 text-purple-900 text-[10px] font-black px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-purple-700" />
+                        <span>Otomatis Selesai: {formatRemainingTime(order.courierDeliveredAt, order.autoCompleteAt)}</span>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* 5-Hour Auto-Completion / Waiting Buyer Confirmation Alert */}
-              {order.deliveryStatus === 'delivered' && order.status !== 'selesai' && (
-                <div className="bg-purple-50 border-2 border-purple-200 rounded-2xl p-3.5 text-xs space-y-2">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 font-black text-purple-950">
-                      <Bike className="w-4 h-4 text-purple-700" />
-                      <span>Paket Sudah Diserahkan Kurir ke Lokasi Anda</span>
-                    </div>
-                    <div className="bg-purple-200/80 text-purple-900 text-[10px] font-black px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-purple-700" />
-                      <span>Otomatis Selesai: {formatRemainingTime(order.courierDeliveredAt, order.autoCompleteAt)}</span>
-                    </div>
+                    <p className="text-purple-900 text-[11px] leading-relaxed">
+                      Kurir telah menyerahkan paket. Silakan periksa kelengkapan pesanan Anda dan klik tombol <strong>"Konfirmasi Pengiriman Selesai"</strong>. Apabila tidak dikonfirmasi selesai oleh pembeli, maka proses selesai otomatis terjadi 5 jam setelah kurir menyerahkan paket.
+                    </p>
                   </div>
-                  <p className="text-purple-900 text-[11px] leading-relaxed">
-                    Kurir telah menyerahkan paket. Silakan periksa kelengkapan pesanan Anda dan klik tombol <strong>"Konfirmasi Pengiriman Selesai"</strong>. Apabila tidak dikonfirmasi selesai oleh pembeli, maka proses selesai otomatis terjadi 5 jam setelah kurir menyerahkan paket.
-                  </p>
-                </div>
-              )}
+                )}
 
-              {/* Completion status note */}
-              {order.status === 'selesai' && (
-                <div className="text-[11px] px-3 py-1.5 rounded-xl border flex items-center gap-1.5 font-medium bg-neutral-50 border-neutral-200 text-neutral-700">
-                  {order.completedBy === 'system_auto_5h' ? (
-                    <>
-                      <Clock className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                      <span>
-                        Selesai otomatis oleh sistem (melewati batas 5 jam setelah kurir menyerahkan paket).
+                {/* Completion status note */}
+                {order.status === 'selesai' && (
+                  <div className="text-[11px] px-3 py-1.5 rounded-xl border flex items-center gap-1.5 font-medium bg-neutral-50 border-neutral-200 text-neutral-700">
+                    {order.completedBy === 'system_auto_5h' ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                        <span>
+                          Selesai otomatis oleh sistem (melewati batas 5 jam setelah kurir menyerahkan paket).
+                        </span>
                       </span>
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span>Pesanan telah dikonfirmasi selesai oleh Pembeli.</span>
-                    </>
-                  )}
-                </div>
-              )}
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>Pesanan telah dikonfirmasi selesai oleh Pembeli.</span>
+                      </span>
+                    )}
+                  </div>
+                )}
 
               {/* Delivery and payment detail */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs bg-neutral-50/70 p-3 rounded-2xl border border-neutral-100">
@@ -422,7 +429,7 @@ export const OrdersView: React.FC = () => {
                         <div className="flex items-center text-amber-500">
                           {Array.from({ length: 5 }).map((_, i) => (
                             <Star
-                              key={i}
+                              key={`order-${order.id || orderIndex}-rating-star-${i}`}
                               className={`w-3 h-3 ${
                                 i < (order.courierRating || 0)
                                   ? 'fill-amber-400 text-amber-400'
@@ -552,7 +559,7 @@ export const OrdersView: React.FC = () => {
                   {order.status === 'selesai' && (
                     <button
                       onClick={() => {
-                        const targetProd = products.find((p) => p.id === order.items[0]?.productId);
+                        const targetProd = products.find((p) => p.id === order.items?.[0]?.productId);
                         if (targetProd) setSelectedProduct(targetProd);
                       }}
                       className="px-3 py-1.5 text-xs font-bold text-emerald-900 bg-emerald-100 hover:bg-emerald-200 rounded-xl transition"
@@ -563,7 +570,8 @@ export const OrdersView: React.FC = () => {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -597,7 +605,7 @@ export const OrdersView: React.FC = () => {
               <div className="flex items-center justify-center gap-1.5">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button
-                    key={star}
+                    key={`modal-rating-star-${star}`}
                     type="button"
                     onClick={() => setCourierRatingScore(star)}
                     className="p-1 hover:scale-120 transition transform cursor-pointer"
@@ -629,7 +637,7 @@ export const OrdersView: React.FC = () => {
             <div className="flex flex-wrap items-center justify-center gap-1.5 text-[11px]">
               {['Tepat Waktu', 'Barang Aman & Rapi', 'Sangat Ramah', 'Komunikasi Bagus', 'Hafal Alamat'].map((tag) => (
                 <button
-                  key={tag}
+                  key={`feedback-tag-${tag}`}
                   type="button"
                   onClick={() => {
                     if (courierReviewText && courierReviewText.includes(tag)) return;

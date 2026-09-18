@@ -52,7 +52,7 @@ export const CheckoutModal: React.FC = () => {
 
   // Landmark / Patokan Rumah State
   const [selectedLandmarkId, setSelectedLandmarkId] = useState<string>(
-    savedLandmarks[0]?.id || 'lm-1'
+    (savedLandmarks || [])[0]?.id || 'lm-1'
   );
   const [isAwayFromHome, setIsAwayFromHome] = useState<boolean>(false);
   const [saveNewLandmark, setSaveNewLandmark] = useState<boolean>(true);
@@ -279,7 +279,7 @@ export const CheckoutModal: React.FC = () => {
                         {/* Tag Kategori berada di bawah nama lapak */}
                         <div className="mt-1">
                           <span className="inline-block bg-emerald-50 text-emerald-800 text-[10px] font-semibold px-2 py-0.5 rounded-md border border-emerald-200">
-                            {ord.items[0]?.categoryName || 'Makanan & Olahan'}
+                            {ord.items?.[0]?.categoryName || 'Makanan & Olahan'}
                           </span>
                         </div>
                       </div>
@@ -292,7 +292,7 @@ export const CheckoutModal: React.FC = () => {
                     </div>
 
                     <div className="text-[11px] text-neutral-600 bg-neutral-50 p-2 rounded-lg">
-                      {ord.items.map((it, idx) => (
+                      {(ord.items || []).map((it, idx) => (
                         <div key={idx} className="flex justify-between">
                           <span>{it.quantity}x {it.productName}</span>
                           <span>{formatRupiah(it.price * it.quantity)}</span>
@@ -442,7 +442,7 @@ export const CheckoutModal: React.FC = () => {
                             {lm.detail}
                           </p>
                           <div className="text-[10px] text-neutral-400 mt-1 flex items-center justify-between">
-                            <span>{lm.dusun.split(',')[0]}</span>
+                            <span>{(lm.dusun || '').split(',')[0]}</span>
                             {lm.recipientNote && (
                               <span className="text-emerald-700 font-medium">Titip: {lm.recipientNote}</span>
                             )}

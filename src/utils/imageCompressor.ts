@@ -105,9 +105,9 @@ export async function compressAndOptimizeImage(
         const compressedSizeKB = Math.round(sizeInBytes / 1024);
 
         // Convert base64 to File object
-        const arr = dataUrl.split(',');
-        const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/webp';
-        const bstr = atob(arr[1]);
+        const arr = dataUrl ? dataUrl.split(',') : [];
+        const mime = arr[0]?.match(/:(.*?);/)?.[1] || 'image/webp';
+        const bstr = arr[1] ? atob(arr[1]) : '';
         let n = bstr.length;
         const u8arr = new Uint8Array(n);
         while (n--) {

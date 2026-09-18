@@ -26,12 +26,12 @@ export const SellerStoreHoursTab: React.FC = () => {
 
   // Find seller's store or fallback to default structure
   const sellerStore =
-    stores.find(
+    (stores || []).find(
       (s) =>
         s.sellerId === currentUser?.id ||
         s.id === currentUser?.storeId ||
         s.name === currentUser?.shopName
-    ) || (currentUser?.role === 'admin' ? stores[0] : null);
+    ) || (currentUser?.role === 'admin' ? (stores || [])[0] : null);
 
   // Form states
   const [openTime, setOpenTime] = useState<string>('06:00');
@@ -162,12 +162,6 @@ export const SellerStoreHoursTab: React.FC = () => {
       };
 
       updateStore(targetStore);
-
-      addNotification({
-        title: 'Jadwal Lapak Disimpan ⏰',
-        message: `Jam operasional ${openingHoursString} dan status libur (${closedDaysString}) berhasil diperbarui.`,
-        type: 'success',
-      });
 
       setSaveSuccessMessage('Pengaturan waktu buka, tutup, dan hari libur lapak berhasil disimpan!');
       setTimeout(() => setSaveSuccessMessage(null), 5000);

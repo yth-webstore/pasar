@@ -129,7 +129,7 @@ export const HomeView: React.FC = () => {
       <BannerSlider />
 
       {/* 2. Running Village Announcement Ticker */}
-      {news.length > 0 && (
+      {news && news.length > 0 && news[0] && (
         <div
           id="village-news-ticker"
           onClick={() => setSelectedNews(news[0])}
@@ -140,7 +140,7 @@ export const HomeView: React.FC = () => {
               Pengumuman
             </span>
             <span className="text-xs font-semibold truncate">
-              {news[0].title}
+              {news[0]?.title || 'Informasi Warga Desa'}
             </span>
           </div>
           <span className="text-[11px] text-emerald-200 hover:text-white shrink-0 font-bold flex items-center gap-1">

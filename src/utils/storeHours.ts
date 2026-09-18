@@ -103,8 +103,12 @@ export function checkStoreOpenStatus(store?: Store | null): StoreOpeningStatus {
 
   // Check store.openTime & store.closeTime first
   if (store.openTime && store.closeTime) {
-    const [startH, startM] = store.openTime.split(':').map((n) => parseInt(n, 10) || 0);
-    const [endH, endM] = store.closeTime.split(':').map((n) => parseInt(n, 10) || 0);
+    const startParts = String(store.openTime).split(':');
+    const startH = parseInt(startParts[0] || '6', 10) || 0;
+    const startM = parseInt(startParts[1] || '0', 10) || 0;
+    const endParts = String(store.closeTime).split(':');
+    const endH = parseInt(endParts[0] || '21', 10) || 0;
+    const endM = parseInt(endParts[1] || '0', 10) || 0;
     startMinutes = startH * 60 + startM;
     endMinutes = endH * 60 + endM;
   } else {

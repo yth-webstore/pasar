@@ -391,7 +391,13 @@ export async function fetchOrdersFromFirestore(): Promise<Order[]> {
     const colRef = collection(db, 'orders');
     const snap = await getDocs(colRef);
     const results: Order[] = [];
-    snap.forEach((docSnap) => results.push(docSnap.data() as Order));
+    snap.forEach((docSnap) => {
+      const data = docSnap.data() as Order;
+      results.push({
+        ...data,
+        id: data?.id || docSnap.id,
+      });
+    });
     return results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   } catch (err) {
     console.warn('Gagal mengambil data pesanan dari Firestore:', err);

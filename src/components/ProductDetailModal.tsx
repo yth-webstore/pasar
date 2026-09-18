@@ -94,7 +94,7 @@ export const ProductDetailModal: React.FC = () => {
       productId: selectedProduct.id,
       userId: currentUser.id,
       userName: currentUser.name,
-      userDusun: currentUser.dusun.split(',')[0],
+      userDusun: (currentUser.dusun || '').split(',')[0] || 'Dusun Krajan',
       rating: newRating,
       comment: newComment.trim(),
     });

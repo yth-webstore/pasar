@@ -114,7 +114,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               </span>
               <span className="flex items-center gap-0.5 text-neutral-400 text-[10px] shrink-0 ml-1">
                 <MapPin className="w-2.5 h-2.5 text-neutral-400 shrink-0" />
-                {product.sellerDusun.split(',')[0]}
+                {(product.sellerDusun || '').split(',')[0]}
               </span>
             </div>
             {/* Tag / Kategori produk berada tepat di bawah nama lapak */}

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import {
   User,
   UserRole,
@@ -276,7 +276,10 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 function getStorage<T>(key: string, defaultValue: T): T {
   try {
     const item = localStorage.getItem(`pasardesa_${key}`);
-    return item ? JSON.parse(item) : defaultValue;
+    if (!item) return defaultValue;
+    const parsed = JSON.parse(item);
+    if (parsed === null || parsed === undefined) return defaultValue;
+    return parsed;
   } catch {
     return defaultValue;
   }
@@ -309,7 +312,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     const saved = getStorage<User | null>('currentUser', null);
     if (saved) return saved;
-    return INITIAL_USERS[0]; // Default to Siti Rahmawati (Buyer)
+    return (INITIAL_USERS && INITIAL_USERS.length > 0) ? INITIAL_USERS[0] : null; // Default to Siti Rahmawati (Buyer)
   });
 
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
@@ -387,7 +390,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return loaded;
   });
   const [orders, setOrders] = useState<Order[]>(() => getStorage('orders', INITIAL_ORDERS));
-  const [cart, setCart] = useState<CartItem[]>(() => getStorage('cart', []));
+
+  // Per-account isolated shopping cart storage (mapped by userId, with 'guest' fallback)
+  const [userCarts, setUserCarts] = useState<Record<string, CartItem[]>>(() => {
+    const loaded = getStorage('userCarts', null);
+    if (loaded && typeof loaded === 'object' && !Array.isArray(loaded)) {
+      return loaded;
+    }
+    // Backward compatibility: migrate legacy global 'cart' if exists
+    const legacyCart = getStorage('cart', []);
+    const initialUser = getStorage('currentUser', INITIAL_USERS && INITIAL_USERS.length > 0 ? INITIAL_USERS[0] : null);
+    const initialId = initialUser?.id || 'user-buyer-1';
+    if (Array.isArray(legacyCart) && legacyCart.length > 0) {
+      return { [initialId]: legacyCart };
+    }
+    return {};
+  });
+
+  // Current active user's cart (per-user isolated cart)
+  const currentCartOwnerId = currentUser?.id || 'guest';
+  const cart: CartItem[] = useMemo(() => {
+    return userCarts[currentCartOwnerId] || [];
+  }, [userCarts, currentCartOwnerId]);
   const [favorites, setFavorites] = useState<string[]>(() => {
     const loadedFavs = getStorage('favorites', []);
     return Array.isArray(loadedFavs) ? loadedFavs : [];
@@ -510,30 +534,59 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: `lm-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
     };
     setSavedLandmarks((prev) => [newLm, ...prev]);
-    addNotification({
-      title: 'Patokan Rumah Disimpan 🏠',
-      message: `Patokan "${landmark.label}" berhasil disimpan untuk opsi pengantaran.`,
-      type: 'info',
-    });
   };
 
   const removeSavedLandmark = (id: string) => {
     setSavedLandmarks((prev) => prev.filter((lm) => lm.id !== id));
   };
 
-  // In-app notifications & Sound preference
-  const [notifications, setNotifications] = useState<InAppNotification[]>(() =>
-    getStorage('notifications', [
-      {
-        id: 'notif-welcome',
-        title: 'Selamat Datang di Pasar Desa!',
-        message: 'Belanja mudah hasil tani, sembako, dan aneka jajanan warga se-desa.',
-        type: 'info',
-        timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-        read: true,
-      },
-    ])
-  );
+  // Helper untuk memfilter notifikasi agar HANYA untuk pesanan masuk dari pembeli atau pesanan selesai konfirmasi
+  const isAllowedNotification = (notif: { title?: string; type?: string; message?: string }): boolean => {
+    if (!notif) return false;
+    const titleLower = (notif.title || '').toLowerCase();
+    const messageLower = (notif.message || '').toLowerCase();
+    const type = notif.type;
+
+    // Larang notifikasi login, masuk akun, keluar akun, selamat datang, hak admin, patokan, atau jadwal
+    if (
+      titleLower.includes('masuk akun') ||
+      titleLower.includes('keluar') ||
+      titleLower.includes('selamat datang') ||
+      titleLower.includes('akses admin') ||
+      titleLower.includes('patokan') ||
+      titleLower.includes('jadwal') ||
+      messageLower.includes('masuk akun') ||
+      messageLower.includes('telah keluar') ||
+      type === 'info'
+    ) {
+      return false;
+    }
+
+    // 1. Pesanan masuk dari pembeli
+    const isIncomingOrder =
+      type === 'checkout' ||
+      titleLower.includes('pesanan masuk') ||
+      titleLower.includes('orderan baru') ||
+      titleLower.includes('pesanan berhasil dibuat');
+
+    // 2. Pesanan selesai konfirmasi (dikonfirmasi pembeli / otomatis 5 jam)
+    const isCompletedOrder =
+      type === 'order_completed' ||
+      titleLower.includes('pesanan selesai') ||
+      titleLower.includes('selesai dikonfirmasi') ||
+      titleLower.includes('selesai otomatis');
+
+    return isIncomingOrder || isCompletedOrder;
+  };
+
+  // In-app notifications & Sound preference (HANYA pesanan masuk dari pembeli & pesanan selesai konfirmasi)
+  const [notifications, setNotifications] = useState<InAppNotification[]>(() => {
+    const loaded = getStorage<InAppNotification[]>('notifications', []);
+    if (Array.isArray(loaded)) {
+      return loaded.filter((n) => isAllowedNotification(n));
+    }
+    return [];
+  });
   const [isSoundEnabled, setIsSoundEnabledState] = useState<boolean>(() => isAudioSoundEnabled());
 
   const setIsSoundEnabled = (enabled: boolean) => {
@@ -542,6 +595,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addNotification = (notif: Omit<InAppNotification, 'id' | 'timestamp' | 'read'>) => {
+    if (!isAllowedNotification(notif)) {
+      return;
+    }
     const newNotif: InAppNotification = {
       id: `notif-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
@@ -585,7 +641,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => setStorage('ads', ads), [ads]);
   useEffect(() => setStorage('reviews', reviews), [reviews]);
   useEffect(() => setStorage('orders', orders), [orders]);
-  useEffect(() => setStorage('cart', cart), [cart]);
+  useEffect(() => {
+    setStorage('userCarts', userCarts);
+    setStorage('cart', cart);
+  }, [userCarts, cart]);
   useEffect(() => setStorage('favorites', favorites), [favorites]);
   useEffect(() => setStorage('settings', settings), [settings]);
   useEffect(() => setStorage('dataSaverMode', dataSaverMode), [dataSaverMode]);
@@ -701,6 +760,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [activeTab, selectedProduct, selectedNews]);
 
+  // Merge anonymous/guest cart into user cart when user signs in or registers
+  const mergeGuestCartToUser = (targetUserId: string) => {
+    if (!targetUserId || targetUserId === 'guest') return;
+    setUserCarts((prev) => {
+      const guestCart = prev['guest'] || [];
+      if (!guestCart || guestCart.length === 0) return prev;
+
+      const userCart = prev[targetUserId] || [];
+      const merged = [...userCart];
+
+      guestCart.forEach((guestItem) => {
+        const existingIdx = merged.findIndex((it) => it.product.id === guestItem.product.id);
+        if (existingIdx >= 0) {
+          merged[existingIdx] = {
+            ...merged[existingIdx],
+            quantity: Math.min(guestItem.product.stock, merged[existingIdx].quantity + guestItem.quantity),
+            notes: guestItem.notes || merged[existingIdx].notes,
+            catatanProduk: guestItem.catatanProduk || merged[existingIdx].catatanProduk,
+          };
+        } else {
+          merged.push(guestItem);
+        }
+      });
+
+      return {
+        ...prev,
+        [targetUserId]: merged,
+        guest: [],
+      };
+    });
+  };
+
   // Auth / Role switcher
   const switchUser = (userId: string) => {
     const target = users.find((u) => u.id === userId);
@@ -745,6 +836,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Authenticate with live Firebase Auth and fetch Firestore doc
         try {
           const user = await firebaseLoginUser({ emailOrPhone, password });
+          mergeGuestCartToUser(user.id);
           setCurrentUser(user);
           setUsers((prev) => {
             const idx = prev.findIndex((u) => u.id === user.id);
@@ -773,6 +865,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               setAuthError('Kata sandi salah. Silakan periksa kembali kata sandi Anda.');
               return false;
             }
+            mergeGuestCartToUser(matchedUser.id);
             setCurrentUser(matchedUser);
             if (matchedUser.role === 'admin') setActiveTab('admin');
             else if (matchedUser.role === 'seller') setActiveTab('seller');
@@ -797,6 +890,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } else {
         // Instant role / demo switcher fallback
         if (matchedUser) {
+          mergeGuestCartToUser(matchedUser.id);
           setCurrentUser(matchedUser);
           if (matchedUser.role === 'admin') setActiveTab('admin');
           else if (matchedUser.role === 'seller') setActiveTab('seller');
@@ -806,6 +900,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         const roleMatched = users.find((u) => u.role === roleHint);
         if (roleMatched) {
+          mergeGuestCartToUser(roleMatched.id);
           setCurrentUser(roleMatched);
           if (roleMatched.role === 'admin') setActiveTab('admin');
           else if (roleMatched.role === 'seller') setActiveTab('seller');
@@ -872,6 +967,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (approvalRequest) {
           setAdminApprovals((prev) => [approvalRequest, ...prev.filter((a) => a.id !== approvalRequest.id)]);
         }
+        mergeGuestCartToUser(newUser.id);
         setCurrentUser(newUser);
         if (newUser.role === 'admin') setActiveTab('admin');
         else if (newUser.role === 'seller') setActiveTab('seller');
@@ -951,6 +1047,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         setUsers((prev) => [...prev, fallbackUser]);
+        mergeGuestCartToUser(fallbackUser.id);
         setCurrentUser(fallbackUser);
         if (fallbackUser.role === 'admin') setActiveTab('admin');
         else if (fallbackUser.role === 'seller') setActiveTab('seller');
@@ -1101,12 +1198,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setActiveTab('beranda');
       }
     }
-
-    addNotification({
-      title: 'Hak Akses Admin Dicabut',
-      message: `Hak akses admin untuk ${user.name} berhasil dicabut. Akun kembali menjadi ${updatedUser.role === 'seller' ? 'Penjual' : 'Warga/Pembeli'}.`,
-      type: 'info',
-    });
   };
 
   const refreshAdminStatus = async () => {
@@ -1277,6 +1368,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAuthError(null);
     try {
       const user = await firebaseGoogleSignIn();
+      mergeGuestCartToUser(user.id);
       setCurrentUser(user);
       setUsers((prev) => {
         const idx = prev.findIndex((u) => u.id === user.id);
@@ -1312,58 +1404,83 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       document.body.scrollTop = 0;
     }
     setActiveTab('beranda');
-    addNotification({
-      title: 'Berhasil Keluar Akun 👋',
-      message: 'Anda telah keluar. Tombol Login kini tersedia di bagian atas.',
-      type: 'info',
-    });
   };
 
-  // Cart operations
+  // Per-account isolated shopping cart operations
   const addToCart = (product: Product, quantity = 1, notes?: string) => {
-    setCart((prev) => {
-      const existing = prev.find((item) => item.product.id === product.id);
+    const ownerId = currentUser?.id || 'guest';
+    setUserCarts((prev) => {
+      const currentList = prev[ownerId] || [];
+      const existing = currentList.find((item) => item.product.id === product.id);
+      let updatedList: CartItem[];
       if (existing) {
-        return prev.map((item) =>
+        updatedList = currentList.map((item) =>
           item.product.id === product.id
-            ? { ...item, quantity: Math.min(product.stock, item.quantity + quantity), notes: notes || item.notes }
+            ? {
+                ...item,
+                quantity: Math.min(product.stock, item.quantity + quantity),
+                notes: notes || item.notes,
+                catatanProduk: notes || item.catatanProduk,
+              }
             : item
         );
+      } else {
+        updatedList = [
+          ...currentList,
+          { product, quantity: Math.min(product.stock, quantity), notes, catatanProduk: notes },
+        ];
       }
-      return [...prev, { product, quantity: Math.min(product.stock, quantity), notes }];
+      return {
+        ...prev,
+        [ownerId]: updatedList,
+      };
     });
   };
 
   const removeFromCart = (productId: string) => {
-    setCart((prev) => prev.filter((item) => item.product.id !== productId));
+    const ownerId = currentUser?.id || 'guest';
+    setUserCarts((prev) => ({
+      ...prev,
+      [ownerId]: (prev[ownerId] || []).filter((item) => item.product.id !== productId),
+    }));
   };
 
   const updateCartQuantity = (productId: string, qty: number) => {
+    const ownerId = currentUser?.id || 'guest';
     if (qty <= 0) {
       removeFromCart(productId);
       return;
     }
-    setCart((prev) =>
-      prev.map((item) => {
+    setUserCarts((prev) => ({
+      ...prev,
+      [ownerId]: (prev[ownerId] || []).map((item) => {
         if (item.product.id === productId) {
           return { ...item, quantity: Math.min(item.product.stock, qty) };
         }
         return item;
-      })
-    );
+      }),
+    }));
   };
 
   const updateCartItemNote = (productId: string, note: string) => {
-    setCart((prev) =>
-      prev.map((item) =>
+    const ownerId = currentUser?.id || 'guest';
+    setUserCarts((prev) => ({
+      ...prev,
+      [ownerId]: (prev[ownerId] || []).map((item) =>
         item.product.id === productId
           ? { ...item, notes: note, catatanProduk: note }
           : item
-      )
-    );
+      ),
+    }));
   };
 
-  const clearCart = () => setCart([]);
+  const clearCart = () => {
+    const ownerId = currentUser?.id || 'guest';
+    setUserCarts((prev) => ({
+      ...prev,
+      [ownerId]: [],
+    }));
+  };
 
   const getCartTotal = () => {
     const subtotal = cart.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
@@ -1436,6 +1553,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const groupKeys = Object.keys(groups);
     groupKeys.forEach((storeKey, index) => {
       const items = groups[storeKey];
+      if (!items || items.length === 0 || !items[0]?.product) return;
       const firstProd = items[0].product;
       const matchedStore = stores.find(
         (s) => s.id === firstProd.storeId || s.id === storeKey || s.sellerId === firstProd.sellerId
@@ -1453,7 +1571,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const orderNumber = `ORD-${Date.now().toString().slice(-4)}${index + 1}`;
       const invoiceNumber = `INV/DESA/${now.getFullYear()}/${Math.floor(100000 + Math.random() * 900000)}`;
 
-      const sellerWhatsapp = matchedStore?.whatsapp || items[0]?.product.sellerWhatsapp || '6285712345678';
+      const sellerWhatsapp = matchedStore?.whatsapp || items[0]?.product?.sellerWhatsapp || '6285712345678';
 
       const orderItem: Order = {
         id: `ord-${Date.now()}-${index}-${Math.floor(Math.random() * 1000)}`,
@@ -1638,30 +1756,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (status === 'selesai') {
             playOrderCompleteChime();
             addNotification({
-              title: 'Pesanan Selesai! 🎉',
+              title: `Pesanan #${ord.orderNumber} Selesai Dikonfirmasi! 🎉`,
               message: `Pesanan #${ord.orderNumber} telah selesai diantar dan diterima warga. Terima kasih!`,
               type: 'order_completed',
-            });
-          } else if (status === 'diproses') {
-            playNotificationChime();
-            addNotification({
-              title: 'Pesanan Sedang Disiapkan 👨‍🍳',
-              message: `Pesanan #${ord.orderNumber} sedang disiapkan oleh lapak ${ord.storeName}.`,
-              type: 'order_update',
-            });
-          } else if (status === 'dikirim') {
-            playNotificationChime();
-            addNotification({
-              title: 'Pesanan Sedang Dikirim 🚚',
-              message: `Pesanan #${ord.orderNumber} sedang dalam perjalanan diantar kurir desa.`,
-              type: 'order_update',
-            });
-          } else {
-            playNotificationChime();
-            addNotification({
-              title: `Status Pesanan #${ord.orderNumber}`,
-              message: `Status pesanan diubah menjadi: ${status}.`,
-              type: 'order_update',
             });
           }
 
@@ -1707,12 +1804,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             updatedAt: now,
           };
           saveOrderToFirestore(updated);
-          playNotificationChime();
-          addNotification({
-            title: `Pesanan #${ord.orderNumber} Diterima Penjual ✅`,
-            message: `Lapak ${ord.sellerName} telah menerima pesanan dan bersiap menyiapkan pesanan Anda.`,
-            type: 'order_update',
-          });
           return updated;
         }
         return ord;
@@ -1733,12 +1824,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             updatedAt: now,
           };
           saveOrderToFirestore(updated);
-          playNotificationChime();
-          addNotification({
-            title: `Pesanan #${ord.orderNumber} Sedang Diproses 📦`,
-            message: `Lapak ${ord.sellerName} sedang menyiapkan dan mengemas pesanan dengan cermat.`,
-            type: 'order_update',
-          });
           return updated;
         }
         return ord;
@@ -1767,12 +1852,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             updatedAt: now,
           };
           saveOrderToFirestore(updated);
-          playNotificationChime();
-          addNotification({
-            title: `Pesanan #${ord.orderNumber} Dikirimkan 🚚`,
-            message: `Pesanan diserahkan ke mitra kurir desa ${courier.name} untuk diantar ke alamat pembeli.`,
-            type: 'order_update',
-          });
           return updated;
         }
         return ord;
@@ -1794,12 +1873,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             updatedAt: now,
           };
           saveOrderToFirestore(updated);
-          playNotificationChime();
-          addNotification({
-            title: `Kurir Mengambil Paket #${ord.orderNumber} 📦`,
-            message: `Kurir ${ord.courierName || 'Desa'} telah menerima paket dari lapak dan sedang dalam perjalanan pengantaran.`,
-            type: 'order_update',
-          });
           return updated;
         }
         return ord;
@@ -1823,12 +1896,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             updatedAt: now,
           };
           saveOrderToFirestore(updated);
-          playNotificationChime();
-          addNotification({
-            title: `Paket #${ord.orderNumber} Berhasil Diserahkan 🛵`,
-            message: `Kurir telah menyerahkan paket kepada pembeli. Menunggu konfirmasi pembeli atau otomatis selesai dalam 5 jam.`,
-            type: 'order_update',
-          });
           return updated;
         }
         return ord;
@@ -2154,7 +2221,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const resetToDefaults = () => {
     localStorage.clear();
     setUsers(INITIAL_USERS);
-    setCurrentUser(INITIAL_USERS[0]);
+    setCurrentUser((INITIAL_USERS && INITIAL_USERS.length > 0) ? INITIAL_USERS[0] : null);
     setProducts(INITIAL_PRODUCTS);
     setCategories(INITIAL_CATEGORIES);
     setBanners(INITIAL_BANNERS);
@@ -2162,7 +2229,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAds(INITIAL_ADS);
     setReviews(INITIAL_REVIEWS);
     setOrders([]);
-    setCart([]);
+    setUserCarts({});
     setFavorites([]);
     setSettings(INITIAL_SETTINGS);
     setDataSaverMode(false);

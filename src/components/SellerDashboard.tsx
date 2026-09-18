@@ -59,12 +59,12 @@ export const SellerDashboard: React.FC = () => {
 
   // Seller store data and operational status
   const sellerStore =
-    stores.find(
+    (stores || []).find(
       (s) =>
         s.sellerId === currentUser?.id ||
         s.id === currentUser?.storeId ||
         s.name === currentUser?.shopName
-    ) || (currentUser?.role === 'admin' ? stores[0] : undefined);
+    ) || (currentUser?.role === 'admin' ? (stores || [])[0] : undefined);
 
   const storeStatus = checkStoreOpenStatus(sellerStore);
 
@@ -74,7 +74,7 @@ export const SellerDashboard: React.FC = () => {
 
   // Form states
   const [name, setName] = useState('');
-  const [categoryId, setCategoryId] = useState(categories[0]?.id || '');
+  const [categoryId, setCategoryId] = useState((categories || [])[0]?.id || '');
   const [price, setPrice] = useState<number>(10000);
   const [isPromo, setIsPromo] = useState(false);
   const [originalPrice, setOriginalPrice] = useState<number>(12000);
@@ -124,7 +124,7 @@ export const SellerDashboard: React.FC = () => {
   const handleOpenAdd = () => {
     setEditingProduct(null);
     setName('');
-    setCategoryId(categories[0]?.id || '');
+    setCategoryId((categories || [])[0]?.id || '');
     setPrice(10000);
     setIsPromo(false);
     setOriginalPrice(12000);
@@ -182,7 +182,7 @@ export const SellerDashboard: React.FC = () => {
       return;
     }
 
-    const cat = categories.find((c) => c.id === categoryId) || categories[0];
+    const cat = (categories || []).find((c) => c.id === categoryId) || (categories || [])[0] || { id: 'cat-1', name: 'Pertanian & Kebun' };
 
     if (editingProduct) {
       updateProduct({
@@ -492,7 +492,7 @@ export const SellerDashboard: React.FC = () => {
                     {/* Tag kategori berada di bawah nama lapak */}
                     <div className="mt-0.5">
                       <span className="inline-block bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-semibold px-2 py-0.5 rounded-md">
-                        {ord.items[0]?.categoryName || 'Makanan & Olahan'}
+                        {ord.items?.[0]?.categoryName || 'Makanan & Olahan'}
                       </span>
                     </div>
                     <div className="text-neutral-500 text-[11px] mt-1">
@@ -686,7 +686,7 @@ export const SellerDashboard: React.FC = () => {
                         id={`seller-ship-btn-${ord.id}`}
                         onClick={() => {
                           setSelectedOrderForShipping(ord);
-                          setSelectedCourierId(availableCouriers[0]?.id || 'user-courier-1');
+                          setSelectedCourierId((availableCouriers || [])[0]?.id || 'user-courier-1');
                         }}
                         className="px-3.5 py-1.5 bg-purple-700 hover:bg-purple-800 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-1.5"
                       >
@@ -1043,8 +1043,8 @@ export const SellerDashboard: React.FC = () => {
                 type="button"
                 onClick={() => {
                   const courier =
-                    availableCouriers.find((c) => c.id === selectedCourierId) ||
-                    availableCouriers[0];
+                    (availableCouriers || []).find((c) => c.id === selectedCourierId) ||
+                    (availableCouriers || [])[0];
                   if (!courier) return;
 
                   // Ship order with chosen courier
@@ -1075,8 +1075,8 @@ export const SellerDashboard: React.FC = () => {
                 type="button"
                 onClick={() => {
                   const courier =
-                    availableCouriers.find((c) => c.id === selectedCourierId) ||
-                    availableCouriers[0];
+                    (availableCouriers || []).find((c) => c.id === selectedCourierId) ||
+                    (availableCouriers || [])[0];
                   if (!courier) return;
 
                   // Ship order without opening WhatsApp
